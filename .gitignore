@@ -216,3 +216,24 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Node/TypeScript
+node_modules/
+dist/
+build/
+server/.wrangler/
+
+# Go
+*.test
+*.out
+*.exe
+vendor/
+client/bin/
+
+# Universal
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+.idea/

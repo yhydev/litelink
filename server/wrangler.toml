@@ -1,0 +1,14 @@
+name = "litelink-server"
+compatibility_date = "2026-05-09"
+
+[assets]
+directory = "web/dist"
+binding = "ASSETS"
+
+[vars]
+APP_ENV = "development"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "litelink"
+database_id = "local-dev"

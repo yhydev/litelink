@@ -1,0 +1,204 @@
+openapi: 3.0.3
+info:
+  title: Link Command Management API
+  version: 0.1.0
+  description: Contract for managing LinkConfig, LinkRecord, and command dispatch.
+servers:
+  - url: https://{host}
+    variables:
+      host:
+        default: example.pages.dev
+paths:
+  /api/link-configs:
+    get:
+      summary: List LinkConfig records
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create LinkConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkConfigCreate'
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Validation error
+  /api/link-configs/{configId}:
+    patch:
+      summary: Update LinkConfig
+      parameters:
+        - in: path
+          name: configId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkConfigUpdate'
+      responses:
+        '200':
+          description: Updated
+        '404':
+          description: Not found
+  /api/link-records:
+    post:
+      summary: Create LinkRecord
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkRecordCreate'
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Schema validation failed
+  /api/link-records/{recordId}/render-command:
+    post:
+      summary: Render command from LinkRecord + LinkConfig template
+      parameters:
+        - in: path
+          name: recordId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rendered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RenderCommandResponse'
+        '422':
+          description: Unresolved variables
+  /api/link-records/{recordId}/dispatch:
+    post:
+      summary: Dispatch rendered command to local Go client endpoint
+      parameters:
+        - in: path
+          name: recordId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DispatchRequest'
+      responses:
+        '202':
+          description: Dispatch accepted
+        '408':
+          description: Local endpoint timeout
+        '502':
+          description: Local endpoint rejected request
+  /local/execute:
+    post:
+      summary: Local Go client execution endpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocalExecuteRequest'
+      responses:
+        '200':
+          description: Execution result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocalExecuteResponse'
+components:
+  schemas:
+    LinkConfigCreate:
+      type: object
+      required: [name, schema, commandTemplate]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        schema:
+          type: object
+          additionalProperties: true
+        commandTemplate:
+          type: string
+    LinkConfigUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        schema:
+          type: object
+          additionalProperties: true
+        commandTemplate:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive]
+    LinkRecordCreate:
+      type: object
+      required: [linkConfigId, values]
+      properties:
+        linkConfigId:
+          type: string
+        values:
+          type: object
+          additionalProperties: true
+    RenderCommandResponse:
+      type: object
+      required: [renderedCommand]
+      properties:
+        renderedCommand:
+          type: string
+        unresolvedVariables:
+          type: array
+          items:
+            type: string
+    DispatchRequest:
+      type: object
+      required: [localEndpoint]
+      properties:
+        localEndpoint:
+          type: string
+        idempotencyKey:
+          type: string
+    LocalExecuteRequest:
+      type: object
+      required: [command, runId, sentAt]
+      properties:
+        command:
+          type: string
+        runId:
+          type: string
+        sentAt:
+          type: string
+          format: date-time
+        signature:
+          type: string
+    LocalExecuteResponse:
+      type: object
+      required: [runId, status]
+      properties:
+        runId:
+          type: string
+        status:
+          type: string
+          enum: [accepted, rejected, succeeded, failed, timeout]
+        message:
+          type: string
+        completedAt:
+          type: string
+          format: date-time

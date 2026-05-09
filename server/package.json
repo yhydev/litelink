@@ -1,0 +1,17 @@
+{
+  "name": "litelink-server",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler pages dev web/dist --compatibility-date=2026-05-09",
+    "dev:web": "npm --prefix web run dev",
+    "build:web": "npm --prefix web run build",
+    "preview:web": "npm --prefix web run preview",
+    "deploy": "wrangler pages deploy web/dist",
+    "lint": "echo \"lint not configured\"",
+    "test": "echo \"tests not configured\""
+  },
+  "devDependencies": {
+    "wrangler": "^4.16.1"
+  }
+}
