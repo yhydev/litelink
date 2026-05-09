@@ -1,20 +1,28 @@
 import { requireRole } from "./middleware/auth"
 import { json } from "./router"
-import { CommandRunService } from "../services/command-run.service"
 import { Database, Repository } from "../services/repository"
+import { renderTemplateCommand } from "../validation/template-renderer"
 
 interface Env {
   DB: Database
 }
 
-function service(env: Env): CommandRunService {
-  return new CommandRunService(new Repository(env.DB))
-}
-
 export async function renderCommand(request: Request, env: Env, recordId: string): Promise<Response> {
   requireRole(request, ["admin", "operator"])
-  const result = await service(env).render(recordId)
-  return json({ renderedCommand: result.renderedCommand, unresolvedVariables: result.unresolvedVariables })
+  const repo = new Repository(env.DB)
+  const record = await repo.getLinkRecordById(recordId)
+  if (!record) {
+    return json({ error: "record_not_found" }, 404)
+  }
+
+  const config = await repo.getLinkConfigById(record.link_config_id)
+  if (!config) {
+    return json({ error: "config_not_found" }, 404)
+  }
+
+  const values = JSON.parse(record.values_json) as Record<string, unknown>
+  const rendered = renderTemplateCommand(config.command_template, values)
+  return json({ renderedCommand: rendered.command, unresolvedVariables: rendered.unresolvedVariables })
 }
 
 export async function onRequestPost(context: {

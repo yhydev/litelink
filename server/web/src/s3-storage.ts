@@ -36,20 +36,6 @@ export interface LinkRecordRow {
   updated_at: string
 }
 
-export interface CommandRunRow {
-  id: string
-  link_config_id: string
-  link_record_id: string
-  rendered_command: string
-  dispatch_target: string
-  request_status: "accepted" | "rejected" | "timeout"
-  execution_status: "pending" | "running" | "succeeded" | "failed" | "cancelled"
-  status_message: string | null
-  requested_by: string
-  requested_at: string
-  completed_at: string | null
-}
-
 interface AuditEventRow {
   id: string
   actor_id: string
@@ -63,14 +49,12 @@ interface AuditEventRow {
 interface TableData {
   linkConfigs: LinkConfigRow[]
   linkRecords: LinkRecordRow[]
-  commandRuns: CommandRunRow[]
   auditEvents: AuditEventRow[]
 }
 
 const TABLE_FILES: Record<keyof TableData, string> = {
   linkConfigs: "link-configs.json.enc",
   linkRecords: "link-records.json.enc",
-  commandRuns: "command-runs.json.enc",
   auditEvents: "audit-events.json.enc",
 }
 
@@ -233,15 +217,5 @@ export const s3Store = {
     if (index < 0) throw new Error("not_found")
     rows[index] = updater(rows[index])
     await writeTable("linkRecords", rows)
-  },
-
-  async listCommandRuns(): Promise<CommandRunRow[]> {
-    const rows = await readTable("commandRuns")
-    return [...rows].sort((a, b) => b.requested_at.localeCompare(a.requested_at))
-  },
-  async createCommandRun(row: CommandRunRow): Promise<void> {
-    const rows = await readTable("commandRuns")
-    rows.push(row)
-    await writeTable("commandRuns", rows)
   },
 }
