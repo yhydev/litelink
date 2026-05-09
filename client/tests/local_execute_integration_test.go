@@ -14,7 +14,7 @@ func TestLocalExecuteRejectsInvalidPayload(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/local/execute", bytes.NewBufferString(`{"command":""}`))
 	rr := httptest.NewRecorder()
 
-	api.ExecuteHandler(rr, req)
+	api.ExecuteHandler(nil)(rr, req)
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected %d, got %d", http.StatusBadRequest, rr.Code)
@@ -25,7 +25,7 @@ func TestLocalExecuteGetRunsCommand(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/local/execute?command=echo%20hello&runId=get-1", nil)
 	rr := httptest.NewRecorder()
 
-	api.ExecuteHandler(rr, req)
+	api.ExecuteHandler(nil)(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected %d, got %d", http.StatusOK, rr.Code)
@@ -45,7 +45,7 @@ func TestLocalExecuteGetRejectsMissingCommand(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/local/execute", nil)
 	rr := httptest.NewRecorder()
 
-	api.ExecuteHandler(rr, req)
+	api.ExecuteHandler(nil)(rr, req)
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected %d, got %d", http.StatusBadRequest, rr.Code)

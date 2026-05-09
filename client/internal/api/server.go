@@ -11,8 +11,14 @@ type Server struct {
 }
 
 func NewServer(listenAddr string) *Server {
+	return NewServerWithLock(listenAddr, false, "", 0)
+}
+
+func NewServerWithLock(listenAddr string, masterPasswordMode bool, masterPassword string, idleLockAfter time.Duration) *Server {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/local/execute", ExecuteHandler)
+	locker := NewLockManager(masterPasswordMode, masterPassword, idleLockAfter)
+	mux.HandleFunc("/local/execute", ExecuteHandler(locker))
+	mux.HandleFunc("/local/unlock", UnlockHandler(locker))
 
 	return &Server{
 		httpServer: &http.Server{

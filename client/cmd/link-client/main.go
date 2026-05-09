@@ -10,7 +10,10 @@ import (
 func main() {
 	cfg := config.Load()
 	log.Printf("link-client starting on %s", cfg.ListenAddress)
-	srv := api.NewServer(cfg.ListenAddress)
+	if cfg.MasterPasswordMode {
+		log.Printf("master password mode enabled, idle lock after %s", cfg.IdleLockAfter)
+	}
+	srv := api.NewServerWithLock(cfg.ListenAddress, cfg.MasterPasswordMode, cfg.MasterPassword, cfg.IdleLockAfter)
 	if err := srv.Start(); err != nil {
 		log.Fatal(err)
 	}

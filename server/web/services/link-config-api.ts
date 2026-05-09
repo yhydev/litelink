@@ -1,4 +1,4 @@
-import { httpFetch, readErrorMessage } from "./http"
+import { s3Store } from "../src/s3-storage"
 
 export interface LinkConfigPayload {
   name: string
@@ -8,34 +8,85 @@ export interface LinkConfigPayload {
 }
 
 export async function fetchLinkConfigs(): Promise<unknown[]> {
-  const response = await httpFetch("/api/link-configs")
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response, "failed_to_fetch_link_configs"))
-  }
-  const data = (await response.json()) as { items: unknown[] }
-  return data.items
+  const rows = await s3Store.listLinkConfigs()
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    description: row.description ?? undefined,
+    schema: JSON.parse(row.schema_json),
+    commandTemplate: row.command_template,
+    status: row.status,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+    updatedBy: row.updated_by,
+    updatedAt: row.updated_at,
+  }))
 }
 
 export async function createLinkConfig(payload: LinkConfigPayload): Promise<unknown> {
-  const response = await httpFetch("/api/link-configs", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-  })
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response, "create_failed"))
+  if (!payload.name.trim()) {
+    throw new Error("name_required")
   }
-  return response.json()
+  const props = (payload.schema.properties as Record<string, unknown>) ?? {}
+  const unresolved = [...payload.commandTemplate.matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g)]
+    .map((item) => item[1])
+    .filter((key) => !(key in props))
+  if (unresolved.length > 0) {
+    throw new Error(`invalid_template: ${unresolved.join(", ")}`)
+  }
+
+  const now = new Date().toISOString()
+  const item = {
+    id: `cfg_${crypto.randomUUID()}`,
+    name: payload.name,
+    description: payload.description ?? null,
+    schema_json: JSON.stringify(payload.schema),
+    command_template: payload.commandTemplate,
+    status: "active" as const,
+    created_by: "local-dev-user",
+    created_at: now,
+    updated_by: "local-dev-user",
+    updated_at: now,
+  }
+  await s3Store.createLinkConfig(item)
+  return {
+    id: item.id,
+    name: item.name,
+    description: payload.description,
+    schema: payload.schema,
+    commandTemplate: payload.commandTemplate,
+    status: item.status,
+    updatedAt: item.updated_at,
+  }
 }
 
 export async function updateLinkConfig(id: string, payload: Partial<LinkConfigPayload> & { status?: "active" | "inactive" }): Promise<unknown> {
-  const response = await httpFetch(`/api/link-configs/${id}`, {
-    method: "PATCH",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-  })
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response, "update_failed"))
+  const existing = await s3Store.getLinkConfigById(id)
+  if (!existing) {
+    throw new Error("not_found")
   }
-  return response.json()
+
+  const nextSchema = payload.schema ?? (JSON.parse(existing.schema_json) as Record<string, unknown>)
+  const nextTemplate = payload.commandTemplate ?? existing.command_template
+  const props = (nextSchema.properties as Record<string, unknown>) ?? {}
+  const unresolved = [...nextTemplate.matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g)]
+    .map((item) => item[1])
+    .filter((key) => !(key in props))
+  if (unresolved.length > 0) {
+    throw new Error(`invalid_template: ${unresolved.join(", ")}`)
+  }
+
+  const now = new Date().toISOString()
+  await s3Store.updateLinkConfig(id, (row) => ({
+    ...row,
+    name: payload.name ?? row.name,
+    description: payload.description ?? row.description,
+    schema_json: JSON.stringify(nextSchema),
+    command_template: nextTemplate,
+    status: payload.status ?? row.status,
+    updated_by: "local-dev-user",
+    updated_at: now,
+  }))
+  const updated = await s3Store.getLinkConfigById(id)
+  return updated
 }
