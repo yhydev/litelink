@@ -1,7 +1,19 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { Button, Input, Modal, ModalBody, ModalContent, ModalHeader, Select, SelectItem } from "@heroui/react"
 import { SchemaDrivenForm } from "./SchemaDrivenForm"
 import { ErrorNotice } from "../common/ErrorNotice"
 import { createLinkRecord, updateLinkRecord } from "../../services/link-record-api"
+
+function getSelectionValue(keys: unknown): string {
+  if (keys === "all") {
+    return ""
+  }
+  if (!(keys instanceof Set)) {
+    return ""
+  }
+  const first = keys.values().next().value
+  return typeof first === "string" ? first : ""
+}
 
 interface ConfigItem {
   id: string
@@ -29,21 +41,18 @@ interface Props {
 
 function DialogShell({ title, subtitle, children, onClose }: { title: string; subtitle: string; children: ReactNode; onClose: () => void }) {
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
-      <div className="modal-panel" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <div>
-            <p className="modal-kicker">connection record</p>
-            <h2>{title}</h2>
-            <p className="modal-subtitle">{subtitle}</p>
-          </div>
-          <button className="btn modal-close" onClick={onClose} type="button">
-            ×
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
+      <Modal isOpen onOpenChange={(open) => !open && onClose()} size="5xl" scrollBehavior="inside" classNames={{ backdrop: "app-modal-backdrop" }}>
+        <ModalContent className="app-modal-content">
+          <ModalHeader className="app-modal-header">
+            <div>
+              <p className="modal-kicker">connection record</p>
+              <h2>{title}</h2>
+              <p className="modal-subtitle">{subtitle}</p>
+            </div>
+          </ModalHeader>
+          <ModalBody className="app-modal-body">{children}</ModalBody>
+        </ModalContent>
+      </Modal>
   )
 }
 
@@ -104,14 +113,23 @@ export function LinkRecordDialog({ mode, configs, defaultConfigId, record, onClo
       {mode === "create" && (
         <label className="field modal-field">
           <span>LinkConfig</span>
-          <select value={selectedConfigId} onChange={(e) => setSelectedConfigId(e.target.value)}>
-            <option value="">Select one</option>
+          <Select
+            classNames={{
+              trigger: "app-select-trigger",
+              value: "app-select-value",
+              popoverContent: "app-select-popover",
+              listbox: "app-select-listbox",
+            }}
+            selectedKeys={selectedConfigId ? [selectedConfigId] : []}
+            onSelectionChange={(keys) => {
+              setSelectedConfigId(getSelectionValue(keys))
+            }}
+            placeholder="Select one"
+          >
             {configs.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
+              <SelectItem key={item.id}>{item.name}</SelectItem>
             ))}
-          </select>
+          </Select>
         </label>
       )}
 
@@ -122,21 +140,33 @@ export function LinkRecordDialog({ mode, configs, defaultConfigId, record, onClo
           <div className="form-grid">
             <label className="field">
               <span>名称</span>
-              <input value={name} onChange={(e) => setName(e.target.value)} required />
-            </label>
-            <label className="field">
-              <span>备注</span>
-              <input value={note} onChange={(e) => setNote(e.target.value)} />
-            </label>
+                <Input classNames={{ inputWrapper: "app-input-wrap", input: "app-input-text" }} value={name} onValueChange={setName} isRequired />
+              </label>
+              <label className="field">
+                <span>备注</span>
+                <Input classNames={{ inputWrapper: "app-input-wrap", input: "app-input-text" }} value={note} onValueChange={setNote} />
+              </label>
           </div>
 
           {mode === "edit" && (
             <label className="field modal-field">
               <span>Status</span>
-              <select value={status} onChange={(e) => setStatus(e.target.value as "active" | "archived")}>
-                <option value="active">active</option>
-                <option value="archived">archived</option>
-              </select>
+              <Select
+                classNames={{
+                  trigger: "app-select-trigger",
+                  value: "app-select-value",
+                  popoverContent: "app-select-popover",
+                  listbox: "app-select-listbox",
+                }}
+                selectedKeys={[status]}
+                onSelectionChange={(keys) => {
+                  const value = getSelectionValue(keys)
+                  setStatus(value === "archived" ? "archived" : "active")
+                }}
+              >
+                <SelectItem key="active">active</SelectItem>
+                <SelectItem key="archived">archived</SelectItem>
+              </Select>
             </label>
           )}
 
@@ -153,6 +183,10 @@ export function LinkRecordDialog({ mode, configs, defaultConfigId, record, onClo
       )}
 
       {dialogError && <ErrorNotice detail={dialogError} />}
+
+      <div className="row-actions">
+        <Button className="app-btn app-btn-ghost" variant="light" onPress={onClose}>关闭</Button>
+      </div>
     </DialogShell>
   )
 }

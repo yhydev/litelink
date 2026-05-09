@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { Button, Card, CardBody, Divider, Input } from "@heroui/react"
 import { DEFAULT_ENDPOINT, getLocalEndpoint, setLocalEndpoint } from "../../src/local-endpoint"
 import { getS3Config, setS3Config, type S3Config } from "../../src/storage-config"
 import { s3Store } from "../../src/s3-storage"
@@ -44,50 +45,53 @@ export default function SettingsPage() {
     <main>
       <h1>Settings</h1>
       <p className="section-lead">纯前端模式：配置浏览器直连 S3 与本地 Local Endpoint，所有配置仅保存在 localStorage。</p>
-      <section className="card">
+      <Card className="card">
+        <CardBody className="list-grid">
         <label className="field">
           <span>Local Endpoint</span>
-          <input value={localEndpoint} onChange={(e) => setLocalEndpointState(e.target.value)} placeholder={DEFAULT_ENDPOINT} />
+          <Input value={localEndpoint} onValueChange={setLocalEndpointState} placeholder={DEFAULT_ENDPOINT} />
         </label>
+        <Divider />
         <label className="field">
           <span>S3 Endpoint</span>
-          <input value={s3Config.endpoint} onChange={(e) => setS3ConfigState((prev) => ({ ...prev, endpoint: e.target.value }))} placeholder="https://<accountid>.r2.cloudflarestorage.com" />
+          <Input value={s3Config.endpoint} onValueChange={(value) => setS3ConfigState((prev) => ({ ...prev, endpoint: value }))} placeholder="https://<accountid>.r2.cloudflarestorage.com" />
         </label>
         <label className="field">
           <span>S3 Region</span>
-          <input value={s3Config.region} onChange={(e) => setS3ConfigState((prev) => ({ ...prev, region: e.target.value }))} placeholder="auto" />
+          <Input value={s3Config.region} onValueChange={(value) => setS3ConfigState((prev) => ({ ...prev, region: value }))} placeholder="auto" />
         </label>
         <label className="field">
           <span>S3 Bucket</span>
-          <input value={s3Config.bucket} onChange={(e) => setS3ConfigState((prev) => ({ ...prev, bucket: e.target.value }))} placeholder="litelink-data" />
+          <Input value={s3Config.bucket} onValueChange={(value) => setS3ConfigState((prev) => ({ ...prev, bucket: value }))} placeholder="litelink-data" />
         </label>
         <label className="field">
           <span>Access Key ID</span>
-          <input value={s3Config.accessKeyId} onChange={(e) => setS3ConfigState((prev) => ({ ...prev, accessKeyId: e.target.value }))} />
+          <Input value={s3Config.accessKeyId} onValueChange={(value) => setS3ConfigState((prev) => ({ ...prev, accessKeyId: value }))} />
         </label>
         <label className="field">
           <span>Secret Access Key</span>
-          <input type="password" value={s3Config.secretAccessKey} onChange={(e) => setS3ConfigState((prev) => ({ ...prev, secretAccessKey: e.target.value }))} />
+          <Input type="password" value={s3Config.secretAccessKey} onValueChange={(value) => setS3ConfigState((prev) => ({ ...prev, secretAccessKey: value }))} />
         </label>
         <label className="field">
           <span>Object Prefix</span>
-          <input value={s3Config.prefix} onChange={(e) => setS3ConfigState((prev) => ({ ...prev, prefix: e.target.value }))} placeholder="litelink/prod" />
+          <Input value={s3Config.prefix} onValueChange={(value) => setS3ConfigState((prev) => ({ ...prev, prefix: value }))} placeholder="litelink/prod" />
         </label>
         <label className="field">
           <span>Encryption Passphrase</span>
-          <input type="password" value={s3Config.passphrase} onChange={(e) => setS3ConfigState((prev) => ({ ...prev, passphrase: e.target.value }))} placeholder="至少 16 位" />
+          <Input type="password" value={s3Config.passphrase} onValueChange={(value) => setS3ConfigState((prev) => ({ ...prev, passphrase: value }))} placeholder="至少 16 位" />
         </label>
         <div className="actions-row">
-          <button type="button" className="btn btn-primary" onClick={save}>
+          <Button type="button" color="primary" onPress={save}>
             保存
-          </button>
-          <button type="button" className="btn" onClick={() => void testConnection()} disabled={testing}>
+          </Button>
+          <Button className="app-btn app-btn-ghost" type="button" variant="flat" onPress={() => void testConnection()} isDisabled={testing}>
             {testing ? "测试中..." : "测试连接"}
-          </button>
+          </Button>
         </div>
         {saved && <p className="success-note">{saved}</p>}
         {testResult && <p className={testResult.startsWith("连接成功") ? "success-note" : "error-note"}>{testResult}</p>}
-      </section>
+        </CardBody>
+      </Card>
     </main>
   )
 }

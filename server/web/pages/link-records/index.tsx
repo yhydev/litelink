@@ -1,9 +1,22 @@
 import { useEffect, useMemo, useState } from "react"
+import { Button, Select, SelectItem, Spinner, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow } from "@heroui/react"
 import { fetchLinkConfigs } from "../../services/link-config-api"
 import { fetchLinkRecords } from "../../services/link-record-api"
 import { renderCommand } from "../../services/command-run-api"
 import { LinkRecordDialog } from "../../components/link-record/LinkRecordDialog"
 import { getLocalEndpoint } from "../../src/local-endpoint"
+
+function getSelectionValue(keys: unknown): string {
+  if (keys === "all") {
+    return ""
+  }
+  if (!(keys instanceof Set)) {
+    return ""
+  }
+  const first = keys.values().next().value
+  return typeof first === "string" ? first : ""
+}
+
 interface ConfigItem {
   id: string
   name: string
@@ -145,61 +158,65 @@ export default function LinkRecordsPage() {
         <div className="toolbar-right">
           <label className="field compact-field">
             <span>Filter by LinkConfig</span>
-            <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
-              <option value="">All</option>
+            <Select
+              classNames={{
+                trigger: "app-select-trigger",
+                value: "app-select-value",
+                popoverContent: "app-select-popover",
+                listbox: "app-select-listbox",
+              }}
+              selectedKeys={selectedId ? [selectedId] : []}
+              onSelectionChange={(keys) => {
+                setSelectedId(getSelectionValue(keys))
+              }}
+              placeholder="All"
+            >
               {configs.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
+                <SelectItem key={item.id}>{item.name}</SelectItem>
               ))}
-            </select>
+            </Select>
           </label>
-          <button className="btn btn-primary" onClick={openCreate} type="button">
+          <Button color="primary" onPress={openCreate} type="button">
             新增连接
-          </button>
+          </Button>
         </div>
       </div>
 
       <section className="card table-card">
         {listError && <p className="error-note">{listError}</p>}
-        <table className="records-table">
-          <thead>
-            <tr>
-              <th>名称</th>
-              <th>备注</th>
-              <th>类型</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {records.map((record) => {
-              const feedback = feedbackById[record.id]
-
-              return (
-                <tr key={record.id}>
-                  <td>
-                    <div className="record-name">{record.name || "—"}</div>
-                  </td>
-                  <td className="record-note">{record.note || "—"}</td>
-                  <td>
-                    <span className="type-pill">{configNameById[record.linkConfigId] || "—"}</span>
-                  </td>
-                  <td>
-                    <div className="row-actions">
-                      <button className="btn" onClick={() => openEdit(record.id)} type="button">
-                        编辑
-                      </button>
-                      <button className="btn btn-primary" onClick={() => void connectRow(record)} disabled={connectingById[record.id]} type="button">
-                        {connectingById[record.id] ? "连接中" : "连接"}
-                      </button>
-                    </div>
-                    {feedback && <div className={`row-note ${feedback.kind === "error" ? "error-note" : feedback.kind === "success" ? "success-note" : "info-note"}`}>{feedback.text}</div>}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+        {configs.length === 0 && records.length === 0 ? (
+          <Spinner label="Loading..." color="primary" />
+        ) : (
+          <Table aria-label="link records" removeWrapper classNames={{ table: "app-table" }}>
+            <TableHeader>
+              <TableColumn>名称</TableColumn>
+              <TableColumn>备注</TableColumn>
+              <TableColumn>类型</TableColumn>
+              <TableColumn>操作</TableColumn>
+            </TableHeader>
+            <TableBody items={records} emptyContent="暂无记录">
+              {(record) => {
+                const feedback = feedbackById[record.id]
+                return (
+                  <TableRow key={record.id}>
+                    <TableCell><div className="record-name">{record.name || "—"}</div></TableCell>
+                    <TableCell className="record-note">{record.note || "—"}</TableCell>
+                    <TableCell><span className="type-pill">{configNameById[record.linkConfigId] || "—"}</span></TableCell>
+                    <TableCell>
+                      <div className="row-actions">
+                        <Button className="app-btn app-btn-ghost" size="sm" variant="flat" onPress={() => openEdit(record.id)} type="button">编辑</Button>
+                        <Button className="app-btn app-btn-primary" size="sm" color="primary" onPress={() => void connectRow(record)} isDisabled={connectingById[record.id]} type="button">
+                          {connectingById[record.id] ? "连接中" : "连接"}
+                        </Button>
+                      </div>
+                      {feedback && <div className={`row-note ${feedback.kind === "error" ? "error-note" : feedback.kind === "success" ? "success-note" : "info-note"}`}>{feedback.text}</div>}
+                    </TableCell>
+                  </TableRow>
+                )
+              }}
+            </TableBody>
+          </Table>
+        )}
       </section>
 
       {createOpen && (

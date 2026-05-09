@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react"
+import { Button, Input, Textarea } from "@heroui/react"
 import type { LinkConfigPayload } from "../../services/link-config-api"
 import { ErrorNotice } from "../common/ErrorNotice"
 
@@ -39,23 +40,23 @@ export function LinkConfigForm({ initialValue, onSubmit, submitLabel = "Save" }:
     <form onSubmit={handleSubmit} className="form-grid">
       <label className="field">
         <span>Name</span>
-        <input value={name} onChange={(e) => setName(e.target.value)} required />
+        <Input classNames={{ inputWrapper: "app-input-wrap", input: "app-input-text" }} value={name} onValueChange={setName} isRequired />
       </label>
       <label className="field">
         <span>Description</span>
-        <input value={description} onChange={(e) => setDescription(e.target.value)} />
+        <Input classNames={{ inputWrapper: "app-input-wrap", input: "app-input-text" }} value={description} onValueChange={setDescription} />
       </label>
       <label className="field field-wide">
         <span>JSON Schema</span>
-        <textarea value={schemaText} onChange={(e) => setSchemaText(e.target.value)} rows={14} required />
+        <Textarea classNames={{ inputWrapper: "app-input-wrap", input: "app-input-text" }} value={schemaText} onValueChange={setSchemaText} minRows={14} isRequired />
       </label>
       <label className="field field-wide">
         <span>Command Template</span>
-        <textarea value={commandTemplate} onChange={(e) => setCommandTemplate(e.target.value)} rows={4} required />
+        <Textarea classNames={{ inputWrapper: "app-input-wrap", input: "app-input-text" }} value={commandTemplate} onValueChange={setCommandTemplate} minRows={4} isRequired />
       </label>
       <ErrorNotice detail={error || undefined} />
       <div className="actions-row">
-        <button type="submit" className="btn btn-primary">{submitLabel}</button>
+        <Button type="submit" color="primary">{submitLabel}</Button>
       </div>
     </form>
   )

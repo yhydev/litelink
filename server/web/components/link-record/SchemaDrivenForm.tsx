@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react"
+import { Button, Input } from "@heroui/react"
 import { ErrorNotice } from "../common/ErrorNotice"
 
 interface Props {
@@ -36,12 +37,12 @@ export function SchemaDrivenForm({ schema, initialValues, submitLabel = "Save Re
       {Object.entries(properties).map(([field, meta]) => (
         <label key={field} className="field">
           <span>{meta.title ?? field}</span>
-          <input
+          <Input
+            classNames={{ inputWrapper: "app-input-wrap", input: "app-input-text" }}
             required={required.has(field)}
             type={meta.type === "number" ? "number" : "text"}
             value={values[field] === undefined || values[field] === null ? "" : String(values[field])}
-            onChange={(e) => {
-              const raw = e.target.value
+            onValueChange={(raw) => {
               const nextValue =
                 meta.type === "number"
                   ? raw.trim() === ""
@@ -58,7 +59,7 @@ export function SchemaDrivenForm({ schema, initialValues, submitLabel = "Save Re
       ))}
       <ErrorNotice detail={error || undefined} />
       <div className="actions-row">
-        <button type="submit" className="btn btn-primary">{submitLabel}</button>
+        <Button type="submit" color="primary">{submitLabel}</Button>
       </div>
     </form>
   )

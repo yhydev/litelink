@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { Button, Chip, Modal, ModalBody, ModalContent, ModalHeader, Spinner, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow } from "@heroui/react"
 import { createLinkConfig, fetchLinkConfigs, updateLinkConfig, type LinkConfigPayload } from "../../services/link-config-api"
 import { LinkConfigForm } from "../../components/link-config/LinkConfigForm"
 
@@ -39,66 +40,63 @@ export default function LinkConfigsPage() {
           <p className="section-lead">管理可复用配置模板（Schema + Command Template）。</p>
         </div>
         <div className="toolbar-right">
-          <button className="btn btn-primary" type="button" onClick={() => setCreateOpen(true)}>
+          <Button color="primary" type="button" onPress={() => setCreateOpen(true)}>
             新增配置
-          </button>
+          </Button>
         </div>
       </div>
 
       <section className="card table-card">
         {loading ? (
-          <p>Loading...</p>
+          <Spinner label="Loading..." color="primary" />
         ) : error ? (
           <p className="error-note">{error}</p>
         ) : (
-          <table className="records-table">
-            <thead>
-              <tr>
-                <th>名称</th>
-                <th>描述</th>
-                <th>状态</th>
-                <th>更新时间</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item.id}>
-                  <td>
+          <Table aria-label="link config list" removeWrapper classNames={{ table: "app-table" }}>
+            <TableHeader>
+              <TableColumn>名称</TableColumn>
+              <TableColumn>描述</TableColumn>
+              <TableColumn>状态</TableColumn>
+              <TableColumn>更新时间</TableColumn>
+              <TableColumn>操作</TableColumn>
+            </TableHeader>
+            <TableBody items={items} emptyContent="暂无配置">
+              {(item) => (
+                <TableRow key={item.id}>
+                  <TableCell>
                     <div className="record-name">{item.name}</div>
                     <div className="row-note mono">{item.id}</div>
-                  </td>
-                  <td className="record-note">{item.description || "—"}</td>
-                  <td>
-                    <span className="type-pill">{item.status}</span>
-                  </td>
-                  <td className="muted-cell">{new Date(item.updatedAt).toLocaleString()}</td>
-                  <td>
-                    <div className="row-actions">
-                      <button className="btn" type="button" onClick={() => setEditing(item)}>
-                        编辑
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </TableCell>
+                  <TableCell className="record-note">{item.description || "—"}</TableCell>
+                  <TableCell>
+                    <Chip size="sm" color={item.status === "active" ? "success" : "default"} variant="flat">{item.status}</Chip>
+                  </TableCell>
+                  <TableCell className="muted-cell">{new Date(item.updatedAt).toLocaleString()}</TableCell>
+                  <TableCell>
+                    <Button className="app-btn app-btn-ghost" size="sm" variant="flat" onPress={() => setEditing(item)}>编辑</Button>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         )}
       </section>
 
-      {createOpen && (
-        <div className="modal-backdrop" role="presentation" onClick={() => setCreateOpen(false)}>
-          <div className="modal-panel" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div>
-                <p className="modal-kicker">link config</p>
-                <h2>新增配置</h2>
-              </div>
-              <button className="btn modal-close" onClick={() => setCreateOpen(false)} type="button">
-                ×
-              </button>
-            </div>
+      <Modal
+        isOpen={createOpen}
+        onOpenChange={(open) => !open && setCreateOpen(false)}
+        size="5xl"
+        scrollBehavior="inside"
+        classNames={{
+          backdrop: "app-modal-backdrop",
+          base: "app-modal-content",
+          header: "app-modal-header",
+          body: "app-modal-body",
+        }}
+      >
+        <ModalContent>
+          <ModalHeader>新增配置</ModalHeader>
+          <ModalBody>
             <LinkConfigForm
               submitLabel="Create Config"
               onSubmit={async (payload) => {
@@ -107,40 +105,44 @@ export default function LinkConfigsPage() {
                 setCreateOpen(false)
               }}
             />
-          </div>
-        </div>
-      )}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
 
-      {editing && (
-        <div className="modal-backdrop" role="presentation" onClick={() => setEditing(null)}>
-          <div className="modal-panel" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div>
-                <p className="modal-kicker">link config</p>
-                <h2>编辑配置</h2>
-                <p className="modal-subtitle mono">{editing.id}</p>
-              </div>
-              <button className="btn modal-close" onClick={() => setEditing(null)} type="button">
-                ×
-              </button>
-            </div>
+      <Modal
+        isOpen={Boolean(editing)}
+        onOpenChange={(open) => !open && setEditing(null)}
+        size="5xl"
+        scrollBehavior="inside"
+        classNames={{
+          backdrop: "app-modal-backdrop",
+          base: "app-modal-content",
+          header: "app-modal-header",
+          body: "app-modal-body",
+        }}
+      >
+        <ModalContent>
+          <ModalHeader>编辑配置</ModalHeader>
+          <ModalBody>
+            {editing && <p className="modal-subtitle mono">{editing.id}</p>}
             <LinkConfigForm
               initialValue={{
-                name: editing.name,
-                description: editing.description,
-                schema: editing.schema,
-                commandTemplate: editing.commandTemplate,
+                name: editing?.name ?? "",
+                description: editing?.description ?? "",
+                schema: editing?.schema ?? {},
+                commandTemplate: editing?.commandTemplate ?? "",
               }}
               submitLabel="Save Changes"
               onSubmit={async (payload) => {
+                if (!editing) return
                 await updateLinkConfig(editing.id, payload)
                 await load()
                 setEditing(null)
               }}
             />
-          </div>
-        </div>
-      )}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </main>
   )
 }

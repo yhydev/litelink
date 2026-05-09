@@ -1,16 +1,15 @@
 import { useEffect, useState } from "react"
+import { Tab, Tabs } from "@heroui/react"
 import LinkConfigsPage from "../pages/link-configs/index"
 import LinkRecordsPage from "../pages/link-records/index"
 import NewLinkRecordPage from "../pages/link-records/new"
-import CommandRunsPage from "../pages/command-runs/index"
 import SettingsPage from "../pages/settings/index"
 
-type RouteKey = "configs" | "records" | "new-record" | "runs" | "settings"
+type RouteKey = "configs" | "records" | "new-record" | "settings"
 
 const routes: Array<{ key: RouteKey; label: string; hash: string }> = [
   { key: "configs", label: "Configs", hash: "#/configs" },
   { key: "records", label: "Records", hash: "#/records" },
-  { key: "runs", label: "Runs", hash: "#/runs" },
   { key: "settings", label: "Settings", hash: "#/settings" },
 ]
 
@@ -18,7 +17,6 @@ function getRouteFromHash(): RouteKey {
   const hash = window.location.hash
   if (hash === "#/records") return "records"
   if (hash === "#/records/new") return "new-record"
-  if (hash === "#/runs") return "runs"
   if (hash === "#/settings") return "settings"
   if (hash === "#/configs") return "configs"
   return "records"
@@ -37,19 +35,28 @@ export function App() {
   }, [])
 
   return (
-    <div className="app">
-      <nav className="nav">
+    <div className="app dark">
+      <Tabs
+        aria-label="Navigation"
+        selectedKey={route}
+        onSelectionChange={(key) => {
+          const found = routes.find((item) => item.key === key)
+          if (found) {
+            window.location.hash = found.hash
+          }
+        }}
+        variant="underlined"
+        color="primary"
+        className="nav"
+      >
         {routes.map((item) => (
-          <a key={item.key} href={item.hash} className={route === item.key ? "active" : ""}>
-            {item.label}
-          </a>
+          <Tab key={item.key} title={item.label} />
         ))}
-      </nav>
+      </Tabs>
 
       {route === "configs" && <LinkConfigsPage />}
       {route === "records" && <LinkRecordsPage />}
       {route === "new-record" && <NewLinkRecordPage />}
-      {route === "runs" && <CommandRunsPage />}
       {route === "settings" && <SettingsPage />}
     </div>
   )
