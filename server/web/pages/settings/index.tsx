@@ -4,6 +4,7 @@ import { DEFAULT_ENDPOINT, getLocalEndpoint, setLocalEndpoint } from "../../src/
 import {
   EMPTY_S3_CONFIG,
   changeMasterPassword,
+  createUrlImportToken,
   getS3Config,
   getMasterPasswordErrorMessage,
   isS3ConfigUnlocked,
@@ -22,6 +23,9 @@ export default function SettingsPage() {
   const [currentMasterPassword, setCurrentMasterPassword] = useState("")
   const [nextMasterPassword, setNextMasterPassword] = useState("")
   const [confirmNextMasterPassword, setConfirmNextMasterPassword] = useState("")
+  const [shareMasterPassword, setShareMasterPassword] = useState("")
+  const [shareExpireMinutes, setShareExpireMinutes] = useState("10")
+  const [shareUrl, setShareUrl] = useState("")
   const [passwordResult, setPasswordResult] = useState("")
   const [saved, setSaved] = useState("")
   const [testing, setTesting] = useState(false)
@@ -79,6 +83,31 @@ export default function SettingsPage() {
       setPasswordResult("Master Password 修改成功")
     } catch (error) {
       setPasswordResult(`修改失败: ${getMasterPasswordErrorMessage(error, "请重试")}`)
+    }
+  }
+
+  function buildImportUrl(token: string): string {
+    const url = new URL(window.location.href)
+    url.searchParams.set("import", token)
+    return url.toString()
+  }
+
+  async function handleGenerateImportUrl() {
+    setPasswordResult("")
+    setShareUrl("")
+    if (!unlocked) {
+      setPasswordResult("生成失败: 请先完成全局解锁")
+      return
+    }
+    try {
+      const minutes = Number(shareExpireMinutes)
+      const token = await createUrlImportToken(shareMasterPassword, minutes)
+      const url = buildImportUrl(token)
+      setShareUrl(url)
+      await navigator.clipboard.writeText(url)
+      setPasswordResult("导入链接已生成并复制到剪贴板")
+    } catch (error) {
+      setPasswordResult(`生成失败: ${getMasterPasswordErrorMessage(error, "请重试")}`)
     }
   }
 
@@ -167,6 +196,21 @@ export default function SettingsPage() {
             修改 Master Password
           </Button>
         </div>
+        <Divider />
+        <label className="field">
+          <span>Share Master Password</span>
+          <Input type="password" value={shareMasterPassword} onValueChange={setShareMasterPassword} placeholder="用于生成导入链接" isDisabled={!unlocked} />
+        </label>
+        <label className="field">
+          <span>Link Expire Minutes</span>
+          <Input value={shareExpireMinutes} onValueChange={setShareExpireMinutes} placeholder="10" isDisabled={!unlocked} />
+        </label>
+        <div className="actions-row">
+          <Button type="button" color="primary" onPress={() => void handleGenerateImportUrl()} isDisabled={!unlocked}>
+            生成导入链接
+          </Button>
+        </div>
+        {shareUrl && <p className="info-note mono">{shareUrl}</p>}
         <Divider />
         <label className="field">
           <span>Local Endpoint</span>

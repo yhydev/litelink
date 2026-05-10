@@ -15,9 +15,21 @@ interface Envelope {
   cipher: string
 }
 
+interface UrlImportPayload {
+  v: 1
+  exp: number
+  cipher: string
+}
+
+interface UrlImportData {
+  encryptedConfig: string
+  localEndpoint: string
+}
+
 const LEGACY_STORAGE_KEY = "litelink.s3.config.v1"
 const STORAGE_KEY = "litelink.s3.config.enc.v1"
 const AUTO_LOCK_MINUTES_KEY = "litelink.security.autolock.minutes"
+const LOCAL_ENDPOINT_STORAGE_KEY = "litelink.localEndpoint"
 const DEFAULT_AUTO_LOCK_MINUTES = 15
 const ENC_V1 = "enc_v1"
 export const S3_LOCK_CHANGED_EVENT = "litelink:s3-lock-changed"
@@ -54,6 +66,23 @@ function unb64(text: string): Uint8Array {
   const out = new Uint8Array(bin.length)
   for (let i = 0; i < bin.length; i += 1) out[i] = bin.charCodeAt(i)
   return out
+}
+
+function b64urlEncode(text: string): string {
+  const bytes = new TextEncoder().encode(text)
+  let binary = ""
+  for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i])
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "")
+}
+
+function b64urlDecode(token: string): string {
+  const normalized = token.replace(/-/g, "+").replace(/_/g, "/")
+  const pad = normalized.length % 4
+  const padded = normalized + (pad === 0 ? "" : "=".repeat(4 - pad))
+  const binary = atob(padded)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
+  return new TextDecoder().decode(bytes)
 }
 
 async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
@@ -106,6 +135,10 @@ export function hasEncryptedS3Config(): boolean {
 
 export function hasLegacyPlainS3Config(): boolean {
   return Boolean(localStorage.getItem(LEGACY_STORAGE_KEY))
+}
+
+export function hasAnyS3ConfigMaterial(): boolean {
+  return hasEncryptedS3Config() || hasLegacyPlainS3Config()
 }
 
 export function getS3Config(): S3Config {
@@ -191,6 +224,20 @@ export async function unlockS3Config(masterPassword: string): Promise<S3Config> 
   return { ...parsed }
 }
 
+export async function initializeMasterPassword(masterPassword: string): Promise<void> {
+  if (!masterPassword.trim()) {
+    throw new Error("master_password_required")
+  }
+  const encrypted = await encryptText(JSON.stringify(EMPTY_S3_CONFIG), masterPassword)
+  localStorage.setItem(STORAGE_KEY, encrypted)
+  localStorage.removeItem(LEGACY_STORAGE_KEY)
+  masterPasswordInMemory = masterPassword
+  unlockedConfig = { ...EMPTY_S3_CONFIG }
+  lastActivityAt = Date.now()
+  scheduleAutoLock()
+  emitLockState("unlocked")
+}
+
 export async function setS3Config(config: S3Config): Promise<void> {
   if (!masterPasswordInMemory.trim()) {
     throw new Error("config_locked")
@@ -247,6 +294,77 @@ export function shouldRequireMasterPassword(): boolean {
   return (hasEncryptedS3Config() || hasLegacyPlainS3Config()) && !isS3ConfigUnlocked()
 }
 
+export function hasPendingImportTokenInUrl(): boolean {
+  const params = new URLSearchParams(window.location.search)
+  return Boolean(params.get("import"))
+}
+
+export function clearImportTokenFromUrl(): void {
+  const url = new URL(window.location.href)
+  if (!url.searchParams.has("import")) return
+  url.searchParams.delete("import")
+  window.history.replaceState(null, "", url.toString())
+}
+
+export async function createUrlImportToken(masterPassword: string, expiresInMinutes: number): Promise<string> {
+  if (!masterPassword.trim()) {
+    throw new Error("master_password_required")
+  }
+  if (!Number.isFinite(expiresInMinutes) || expiresInMinutes <= 0) {
+    throw new Error("invalid_import_expiry")
+  }
+  const encryptedConfig = localStorage.getItem(STORAGE_KEY)
+  if (!encryptedConfig) {
+    throw new Error("encrypted_config_not_found")
+  }
+  const localEndpoint = localStorage.getItem(LOCAL_ENDPOINT_STORAGE_KEY) || ""
+  const importData: UrlImportData = { encryptedConfig, localEndpoint }
+  const cipher = await encryptText(JSON.stringify(importData), masterPassword)
+  const payload: UrlImportPayload = {
+    v: 1,
+    exp: Date.now() + Math.floor(expiresInMinutes * 60 * 1000),
+    cipher,
+  }
+  const plain = JSON.stringify(payload)
+  return b64urlEncode(plain)
+}
+
+export async function importFromUrlToken(token: string, masterPassword: string): Promise<void> {
+  if (!masterPassword.trim()) {
+    throw new Error("master_password_required")
+  }
+  if (!token.trim()) {
+    throw new Error("invalid_import_token")
+  }
+  let payload: UrlImportPayload
+  try {
+    payload = JSON.parse(b64urlDecode(token)) as UrlImportPayload
+  } catch {
+    throw new Error("invalid_import_token")
+  }
+  if (payload.v !== 1 || !payload.cipher || typeof payload.exp !== "number") {
+    throw new Error("invalid_import_payload")
+  }
+  if (Date.now() > payload.exp) {
+    throw new Error("import_token_expired")
+  }
+  let importData: UrlImportData
+  try {
+    const plain = await decryptText(payload.cipher, masterPassword)
+    importData = JSON.parse(plain) as UrlImportData
+  } catch {
+    throw new Error("unlock_failed")
+  }
+  if (!importData.encryptedConfig) {
+    throw new Error("invalid_import_payload")
+  }
+  localStorage.setItem(STORAGE_KEY, importData.encryptedConfig)
+  localStorage.removeItem(LEGACY_STORAGE_KEY)
+  if (typeof importData.localEndpoint === "string" && importData.localEndpoint.trim()) {
+    localStorage.setItem(LOCAL_ENDPOINT_STORAGE_KEY, importData.localEndpoint)
+  }
+}
+
 export function getMasterPasswordErrorMessage(error: unknown, fallback = "操作失败"): string {
   if (!(error instanceof Error)) return fallback
   switch (error.message) {
@@ -254,10 +372,20 @@ export function getMasterPasswordErrorMessage(error: unknown, fallback = "操作
       return "请输入 Master Password"
     case "new_master_password_required":
       return "请输入新的 Master Password"
+    case "master_password_mismatch":
+      return "两次输入的 Master Password 不一致"
     case "unlock_failed":
       return "Master Password 不正确"
     case "encrypted_config_not_found":
       return "未找到可修改的加密配置"
+    case "invalid_import_expiry":
+      return "导入链接有效期设置不正确"
+    case "invalid_import_token":
+      return "导入链接格式无效"
+    case "invalid_import_payload":
+      return "导入链接内容无效"
+    case "import_token_expired":
+      return "导入链接已过期"
     case "config_locked":
       return "当前会话已锁定，请先解锁"
     default:
