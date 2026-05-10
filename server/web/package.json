@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "tsx --test \"components/**/*.test.ts\"",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -22,6 +23,7 @@
     "@vitejs/plugin-react": "^4.3.3",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.16",
+    "tsx": "^4.19.4",
     "typescript": "^5.6.3",
     "vite": "^5.4.10"
   }

@@ -39,6 +39,10 @@ interface Props {
   onSaved: () => void | Promise<void>
 }
 
+function cloneValues(input: Record<string, unknown> | undefined): Record<string, unknown> {
+  return input ? JSON.parse(JSON.stringify(input)) as Record<string, unknown> : {}
+}
+
 function DialogShell({ title, subtitle, children, onClose }: { title: string; subtitle: string; children: ReactNode; onClose: () => void }) {
   return (
       <Modal isOpen onOpenChange={(open) => !open && onClose()} size="5xl" scrollBehavior="inside" classNames={{ backdrop: "app-modal-backdrop" }}>
@@ -61,7 +65,7 @@ export function LinkRecordDialog({ mode, configs, defaultConfigId, record, onClo
   const [name, setName] = useState(record?.name ?? "")
   const [note, setNote] = useState(record?.note ?? "")
   const [status, setStatus] = useState<"active" | "archived">(record?.status ?? "active")
-  const [values, setValues] = useState<Record<string, unknown>>(record?.values ?? {})
+  const [values, setValues] = useState<Record<string, unknown>>(cloneValues(record?.values))
   const [error, setError] = useState("")
   const [saving, setSaving] = useState(false)
 
@@ -70,7 +74,7 @@ export function LinkRecordDialog({ mode, configs, defaultConfigId, record, onClo
     setName(record?.name ?? "")
     setNote(record?.note ?? "")
     setStatus(record?.status ?? "active")
-    setValues(record?.values ?? {})
+    setValues(cloneValues(record?.values))
     setError("")
     setSaving(false)
   }, [defaultConfigId, record, mode, configs])
@@ -124,7 +128,9 @@ export function LinkRecordDialog({ mode, configs, defaultConfigId, record, onClo
             }}
             selectedKeys={selectedConfigId ? [selectedConfigId] : []}
             onSelectionChange={(keys) => {
-              setSelectedConfigId(getSelectionValue(keys))
+              const nextConfigId = getSelectionValue(keys)
+              setSelectedConfigId(nextConfigId)
+              setValues({})
             }}
             placeholder="Select one"
           >

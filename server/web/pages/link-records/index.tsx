@@ -181,6 +181,7 @@ export default function LinkRecordsPage() {
               <TableColumn>名称</TableColumn>
               <TableColumn>备注</TableColumn>
               <TableColumn>类型</TableColumn>
+              <TableColumn>访问</TableColumn>
               <TableColumn>操作</TableColumn>
             </TableHeader>
             <TableBody items={records} emptyContent="暂无记录">
@@ -194,21 +195,32 @@ export default function LinkRecordsPage() {
                     <TableCell><span className="type-pill">{configNameById[record.linkConfigId] || "—"}</span></TableCell>
                     <TableCell>
                       <div className="row-actions">
+                        {(() => {
+                          const templates = configs.find((item) => item.id === record.linkConfigId)?.connectionTemplates ?? []
+                          if (templates.length === 0) {
+                            return <span className="row-note">—</span>
+                          }
+                          return templates.map((tpl, index) => (
+                            <span key={`${record.id}-${tpl.name}`}>
+                              {index > 0 ? <span className="muted-cell"> | </span> : null}
+                              <a
+                                href="#"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(event) => {
+                                  void openRenderedAddressInNewTab(event, record.id, tpl.name)
+                                }}
+                              >
+                                {tpl.name}
+                              </a>
+                            </span>
+                          ))
+                        })()}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="row-actions">
                         <Button className="app-btn app-btn-ghost" size="sm" variant="flat" onPress={() => openEdit(record.id)} type="button">编辑</Button>
-                        {(configs.find((item) => item.id === record.linkConfigId)?.connectionTemplates ?? []).map((tpl) => (
-                          <a
-                            key={`${record.id}-${tpl.name}`}
-                            className="app-btn app-btn-primary"
-                            href="#"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(event) => {
-                              void openRenderedAddressInNewTab(event, record.id, tpl.name)
-                            }}
-                          >
-                            {tpl.name}
-                          </a>
-                        ))}
                       </div>
                       {feedbackById[record.id] && <div className="row-note">{feedbackById[record.id]}</div>}
                     </TableCell>

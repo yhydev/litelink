@@ -31,8 +31,9 @@ export async function renderCommand(recordId: string): Promise<{ renderedCommand
 
 function parseConnectionTemplates(config: { connection_templates_json?: string; command_template: string }): Array<{ name: string; template: string }> {
   if (config.connection_templates_json) {
+    const source = config.connection_templates_json.trim()
     try {
-      const parsed = JSON.parse(config.connection_templates_json) as Array<{ name?: unknown; template?: unknown }>
+      const parsed = JSON.parse(source) as Array<{ name?: unknown; template?: unknown }>
       if (Array.isArray(parsed)) {
         return parsed
           .map((item) => ({
@@ -42,6 +43,9 @@ function parseConnectionTemplates(config: { connection_templates_json?: string; 
           .filter((item) => item.name && item.template)
       }
     } catch {
+      if (source) {
+        return [{ name: "default", template: source }]
+      }
       return []
     }
   }

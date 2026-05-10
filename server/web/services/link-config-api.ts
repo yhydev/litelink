@@ -25,7 +25,24 @@ function normalizeTemplates(raw: unknown): Array<{ name: string; template: strin
       .filter((item) => item.name && item.template)
   }
   if (typeof raw === "string" && raw.trim()) {
-    return [{ name: "default", template: raw.trim() }]
+    const text = raw.trim()
+    try {
+      const parsed = JSON.parse(text) as unknown
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item) => {
+            const value = item as { name?: unknown; template?: unknown }
+            return {
+              name: typeof value.name === "string" ? value.name.trim() : "",
+              template: typeof value.template === "string" ? value.template.trim() : "",
+            }
+          })
+          .filter((item) => item.name && item.template)
+      }
+    } catch {
+      // legacy plain template string
+    }
+    return [{ name: "default", template: text }]
   }
   return []
 }
