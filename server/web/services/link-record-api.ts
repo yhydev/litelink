@@ -1,7 +1,8 @@
-import { s3Store } from "../src/s3-storage"
+import { readLocalDb, updateLocalDb } from "../src/local-db"
 
 export async function createLinkRecord(linkConfigId: string, name: string, note: string, values: Record<string, unknown>): Promise<unknown> {
-  const config = await s3Store.getActiveLinkConfigById(linkConfigId)
+  const db = await readLocalDb()
+  const config = db.linkConfigs.find((row) => row.id === linkConfigId && row.status === "active") ?? null
   if (!config) {
     throw new Error("link_config_not_found_or_inactive")
   }
@@ -18,30 +19,43 @@ export async function createLinkRecord(linkConfigId: string, name: string, note:
     updated_by: "local-dev-user",
     updated_at: now,
   }
-  await s3Store.createLinkRecord(row)
+  await updateLocalDb((current) => ({
+    ...current,
+    linkRecords: [...current.linkRecords, row],
+  }))
   return row
 }
 
 export async function updateLinkRecord(recordId: string, payload: { name?: string; note?: string; values?: Record<string, unknown>; status?: "active" | "archived" }): Promise<unknown> {
-  const existing = await s3Store.getLinkRecordById(recordId)
+  const db = await readLocalDb()
+  const existing = db.linkRecords.find((row) => row.id === recordId) ?? null
   if (!existing) {
     throw new Error("not_found")
   }
   const now = new Date().toISOString()
-  await s3Store.updateLinkRecord(recordId, (row) => ({
-    ...row,
-    name: payload.name ?? row.name,
-    note: payload.note ?? row.note,
-    values_json: JSON.stringify(payload.values ?? JSON.parse(row.values_json)),
-    status: payload.status ?? row.status,
-    updated_by: "local-dev-user",
-    updated_at: now,
+  await updateLocalDb((current) => ({
+    ...current,
+    linkRecords: current.linkRecords.map((row) => {
+      if (row.id !== recordId) return row
+      return {
+        ...row,
+        name: payload.name !== undefined ? payload.name : row.name,
+        note: payload.note !== undefined ? payload.note : row.note,
+        values_json: JSON.stringify(payload.values ?? JSON.parse(row.values_json)),
+        status: payload.status ?? row.status,
+        updated_by: "local-dev-user",
+        updated_at: now,
+      }
+    }),
   }))
-  return s3Store.getLinkRecordById(recordId)
+  return (await readLocalDb()).linkRecords.find((row) => row.id === recordId) ?? null
 }
 
 export async function fetchLinkRecords(linkConfigId?: string): Promise<unknown[]> {
-  const rows = await s3Store.listLinkRecords(linkConfigId)
+  const db = await readLocalDb()
+  const rows = db.linkRecords
+    .filter((row) => (linkConfigId ? row.link_config_id === linkConfigId : true))
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
   return rows.map((row) => {
     const values = JSON.parse(row.values_json) as Record<string, unknown>
     const type = ["type", "protocol", "protocolType", "kind"].map((k) => values[k]).find((v) => v !== undefined && v !== null && v !== "")

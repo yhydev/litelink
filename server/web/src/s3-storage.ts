@@ -36,7 +36,7 @@ export interface LinkRecordRow {
   updated_at: string
 }
 
-interface AuditEventRow {
+export interface AuditEventRow {
   id: string
   actor_id: string
   action_type: string
@@ -47,6 +47,12 @@ interface AuditEventRow {
 }
 
 interface TableData {
+  linkConfigs: LinkConfigRow[]
+  linkRecords: LinkRecordRow[]
+  auditEvents: AuditEventRow[]
+}
+
+export interface S3Snapshot {
   linkConfigs: LinkConfigRow[]
   linkRecords: LinkRecordRow[]
   auditEvents: AuditEventRow[]
@@ -217,5 +223,20 @@ export const s3Store = {
     if (index < 0) throw new Error("not_found")
     rows[index] = updater(rows[index])
     await writeTable("linkRecords", rows)
+  },
+  async exportAll(): Promise<S3Snapshot> {
+    const [linkConfigs, linkRecords, auditEvents] = await Promise.all([
+      readTable("linkConfigs"),
+      readTable("linkRecords"),
+      readTable("auditEvents"),
+    ])
+    return { linkConfigs, linkRecords, auditEvents }
+  },
+  async importAll(snapshot: S3Snapshot): Promise<void> {
+    await Promise.all([
+      writeTable("linkConfigs", snapshot.linkConfigs),
+      writeTable("linkRecords", snapshot.linkRecords),
+      writeTable("auditEvents", snapshot.auditEvents),
+    ])
   },
 }

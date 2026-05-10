@@ -31,8 +31,8 @@ export function LinkConfigForm({ initialValue, onSubmit, submitLabel = "Save" }:
     try {
       const schema = JSON.parse(schemaText) as Record<string, unknown>
       await onSubmit({ name, description, schema, commandTemplate })
-    } catch {
-      setError("保存失败，请检查 schema/template 是否合法")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "保存失败，请检查 schema/template 是否合法")
     }
   }
 

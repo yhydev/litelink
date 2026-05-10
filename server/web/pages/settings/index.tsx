@@ -3,6 +3,7 @@ import { Button, Card, CardBody, Divider, Input } from "@heroui/react"
 import { DEFAULT_ENDPOINT, getLocalEndpoint, setLocalEndpoint } from "../../src/local-endpoint"
 import { getS3Config, setS3Config, type S3Config } from "../../src/storage-config"
 import { s3Store } from "../../src/s3-storage"
+import { syncFromS3, syncToS3 } from "../../src/sync-service"
 
 export default function SettingsPage() {
   const [localEndpoint, setLocalEndpointState] = useState(() => getLocalEndpoint())
@@ -10,6 +11,9 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState("")
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState("")
+  const [syncingToS3, setSyncingToS3] = useState(false)
+  const [syncingFromS3, setSyncingFromS3] = useState(false)
+  const [syncResult, setSyncResult] = useState("")
 
   function save() {
     const value = localEndpoint.trim() || DEFAULT_ENDPOINT
@@ -38,6 +42,34 @@ export default function SettingsPage() {
       setTestResult(error instanceof Error ? `连接失败: ${error.message}` : "连接失败")
     } finally {
       setTesting(false)
+    }
+  }
+
+  async function handleSyncToS3() {
+    setSyncingToS3(true)
+    setSyncResult("")
+    try {
+      save()
+      const result = await syncToS3()
+      setSyncResult(result.message)
+    } catch (error) {
+      setSyncResult(error instanceof Error ? `同步失败: ${error.message}` : "同步失败")
+    } finally {
+      setSyncingToS3(false)
+    }
+  }
+
+  async function handleSyncFromS3() {
+    setSyncingFromS3(true)
+    setSyncResult("")
+    try {
+      save()
+      const result = await syncFromS3()
+      setSyncResult(result.message)
+    } catch (error) {
+      setSyncResult(error instanceof Error ? `同步失败: ${error.message}` : "同步失败")
+    } finally {
+      setSyncingFromS3(false)
     }
   }
 
@@ -87,9 +119,16 @@ export default function SettingsPage() {
           <Button className="app-btn app-btn-ghost" type="button" variant="flat" onPress={() => void testConnection()} isDisabled={testing}>
             {testing ? "测试中..." : "测试连接"}
           </Button>
+          <Button className="app-btn app-btn-ghost" type="button" variant="flat" onPress={() => void handleSyncToS3()} isDisabled={syncingToS3 || syncingFromS3}>
+            {syncingToS3 ? "同步中..." : "同步到 S3"}
+          </Button>
+          <Button className="app-btn app-btn-ghost" type="button" variant="flat" onPress={() => void handleSyncFromS3()} isDisabled={syncingToS3 || syncingFromS3}>
+            {syncingFromS3 ? "同步中..." : "从 S3 同步到本地"}
+          </Button>
         </div>
         {saved && <p className="success-note">{saved}</p>}
         {testResult && <p className={testResult.startsWith("连接成功") ? "success-note" : "error-note"}>{testResult}</p>}
+        {syncResult && <p className={syncResult.includes("成功") ? "success-note" : "error-note"}>{syncResult}</p>}
         </CardBody>
       </Card>
     </main>

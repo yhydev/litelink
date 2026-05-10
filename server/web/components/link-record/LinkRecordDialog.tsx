@@ -61,6 +61,7 @@ export function LinkRecordDialog({ mode, configs, defaultConfigId, record, onClo
   const [name, setName] = useState(record?.name ?? "")
   const [note, setNote] = useState(record?.note ?? "")
   const [status, setStatus] = useState<"active" | "archived">(record?.status ?? "active")
+  const [values, setValues] = useState<Record<string, unknown>>(record?.values ?? {})
   const [error, setError] = useState("")
   const [saving, setSaving] = useState(false)
 
@@ -69,6 +70,7 @@ export function LinkRecordDialog({ mode, configs, defaultConfigId, record, onClo
     setName(record?.name ?? "")
     setNote(record?.note ?? "")
     setStatus(record?.status ?? "active")
+    setValues(record?.values ?? {})
     setError("")
     setSaving(false)
   }, [defaultConfigId, record, mode, configs])
@@ -76,7 +78,7 @@ export function LinkRecordDialog({ mode, configs, defaultConfigId, record, onClo
   const selectedConfig = useMemo(() => configs.find((item) => item.id === selectedConfigId), [configs, selectedConfigId])
   const dialogError = error || (!selectedConfig ? "暂无可用配置" : "")
 
-  async function handleSubmit(values: Record<string, unknown>) {
+  async function handleSubmit() {
     if (!selectedConfig) {
       setError("请先选择一个 LinkConfig")
       return
@@ -174,9 +176,8 @@ export function LinkRecordDialog({ mode, configs, defaultConfigId, record, onClo
             <SchemaDrivenForm
               key={`${selectedConfig.id}-${mode}`}
               schema={selectedConfig.schema}
-              initialValues={record?.values}
-              submitLabel={saving ? "Saving..." : mode === "create" ? "Create Record" : "Save Changes"}
-              onSubmit={handleSubmit}
+              values={values}
+              onValuesChange={setValues}
             />
           </div>
         </div>
@@ -185,6 +186,9 @@ export function LinkRecordDialog({ mode, configs, defaultConfigId, record, onClo
       {dialogError && <ErrorNotice detail={dialogError} />}
 
       <div className="row-actions">
+        <Button className="app-btn app-btn-primary" color="primary" onPress={() => void handleSubmit()} isDisabled={saving || !selectedConfig}>
+          {saving ? "Saving..." : mode === "create" ? "Create Record" : "Save Changes"}
+        </Button>
         <Button className="app-btn app-btn-ghost" variant="light" onPress={onClose}>关闭</Button>
       </div>
     </DialogShell>

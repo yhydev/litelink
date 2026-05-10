@@ -1,4 +1,4 @@
-import { s3Store } from "../src/s3-storage"
+import { readLocalDb, updateLocalDb } from "../src/local-db"
 
 export interface LinkConfigPayload {
   name: string
@@ -8,7 +8,8 @@ export interface LinkConfigPayload {
 }
 
 export async function fetchLinkConfigs(): Promise<unknown[]> {
-  const rows = await s3Store.listLinkConfigs()
+  const db = await readLocalDb()
+  const rows = [...db.linkConfigs].sort((a, b) => b.updated_at.localeCompare(a.updated_at))
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
@@ -48,7 +49,10 @@ export async function createLinkConfig(payload: LinkConfigPayload): Promise<unkn
     updated_by: "local-dev-user",
     updated_at: now,
   }
-  await s3Store.createLinkConfig(item)
+  await updateLocalDb((db) => ({
+    ...db,
+    linkConfigs: [...db.linkConfigs, item],
+  }))
   return {
     id: item.id,
     name: item.name,
@@ -61,7 +65,8 @@ export async function createLinkConfig(payload: LinkConfigPayload): Promise<unkn
 }
 
 export async function updateLinkConfig(id: string, payload: Partial<LinkConfigPayload> & { status?: "active" | "inactive" }): Promise<unknown> {
-  const existing = await s3Store.getLinkConfigById(id)
+  const db = await readLocalDb()
+  const existing = db.linkConfigs.find((row) => row.id === id) ?? null
   if (!existing) {
     throw new Error("not_found")
   }
@@ -77,16 +82,22 @@ export async function updateLinkConfig(id: string, payload: Partial<LinkConfigPa
   }
 
   const now = new Date().toISOString()
-  await s3Store.updateLinkConfig(id, (row) => ({
-    ...row,
-    name: payload.name ?? row.name,
-    description: payload.description ?? row.description,
-    schema_json: JSON.stringify(nextSchema),
-    command_template: nextTemplate,
-    status: payload.status ?? row.status,
-    updated_by: "local-dev-user",
-    updated_at: now,
+  await updateLocalDb((current) => ({
+    ...current,
+    linkConfigs: current.linkConfigs.map((row) => {
+      if (row.id !== id) return row
+      return {
+        ...row,
+        name: payload.name !== undefined ? payload.name : row.name,
+        description: payload.description !== undefined ? payload.description : row.description,
+        schema_json: JSON.stringify(nextSchema),
+        command_template: nextTemplate,
+        status: payload.status ?? row.status,
+        updated_by: "local-dev-user",
+        updated_at: now,
+      }
+    }),
   }))
-  const updated = await s3Store.getLinkConfigById(id)
+  const updated = (await readLocalDb()).linkConfigs.find((row) => row.id === id) ?? null
   return updated
 }

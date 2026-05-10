@@ -1,4 +1,4 @@
-import { s3Store } from "../src/s3-storage"
+import { readLocalDb } from "../src/local-db"
 
 function renderTemplate(template: string, values: Record<string, unknown>): { command: string; unresolved: string[] } {
   const unresolved: string[] = []
@@ -14,11 +14,12 @@ function renderTemplate(template: string, values: Record<string, unknown>): { co
 }
 
 export async function renderCommand(recordId: string): Promise<{ renderedCommand: string; unresolvedVariables: string[] }> {
-  const record = await s3Store.getLinkRecordById(recordId)
+  const db = await readLocalDb()
+  const record = db.linkRecords.find((row) => row.id === recordId) ?? null
   if (!record) {
     throw new Error("record_not_found")
   }
-  const config = await s3Store.getLinkConfigById(record.link_config_id)
+  const config = db.linkConfigs.find((row) => row.id === record.link_config_id) ?? null
   if (!config) {
     throw new Error("config_not_found")
   }

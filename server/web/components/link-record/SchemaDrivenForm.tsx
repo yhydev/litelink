@@ -1,39 +1,21 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react"
-import { Button, Input } from "@heroui/react"
-import { ErrorNotice } from "../common/ErrorNotice"
+import { useMemo } from "react"
+import { Input } from "@heroui/react"
 
 interface Props {
   schema: Record<string, unknown>
-  initialValues?: Record<string, unknown>
-  submitLabel?: string
-  onSubmit: (values: Record<string, unknown>) => Promise<void>
+  values: Record<string, unknown>
+  onValuesChange: (values: Record<string, unknown>) => void
 }
 
-export function SchemaDrivenForm({ schema, initialValues, submitLabel = "Save Record", onSubmit }: Props) {
+export function SchemaDrivenForm({ schema, values, onValuesChange }: Props) {
   const properties = useMemo(
     () => ((schema.properties as Record<string, { title?: string; type?: string }>) ?? {}),
     [schema]
   )
   const required = useMemo(() => new Set((schema.required as string[]) ?? []), [schema])
-  const [values, setValues] = useState<Record<string, unknown>>(initialValues ?? {})
-  const [error, setError] = useState("")
-
-  useEffect(() => {
-    setValues(initialValues ?? {})
-  }, [initialValues, schema])
-
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault()
-    setError("")
-    try {
-      await onSubmit(values)
-    } catch {
-      setError("保存失败，请检查输入")
-    }
-  }
 
   return (
-    <form onSubmit={handleSubmit} className="form-grid">
+    <div className="form-grid">
       {Object.entries(properties).map(([field, meta]) => (
         <label key={field} className="field">
           <span>{meta.title ?? field}</span>
@@ -49,18 +31,14 @@ export function SchemaDrivenForm({ schema, initialValues, submitLabel = "Save Re
                     ? undefined
                     : Number(raw)
                   : raw
-              setValues((prev) => ({
-                ...prev,
+              onValuesChange({
+                ...values,
                 [field]: nextValue,
-              }))
+              })
             }}
           />
         </label>
       ))}
-      <ErrorNotice detail={error || undefined} />
-      <div className="actions-row">
-        <Button type="submit" color="primary">{submitLabel}</Button>
-      </div>
-    </form>
+    </div>
   )
 }
