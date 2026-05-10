@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react"
 import { Button, Input, Modal, ModalBody, ModalContent, ModalHeader, Tab, Tabs } from "@heroui/react"
 import LinkConfigsPage from "../pages/link-configs/index"
+import EndpointPage from "../pages/endpoint/index"
 import LinkRecordsPage from "../pages/link-records/index"
-import NewLinkRecordPage from "../pages/link-records/new"
-import SettingsPage from "../pages/settings/index"
+import SecurityPage from "../pages/security/index"
+import StoragePage from "../pages/storage/index"
 import {
   clearImportTokenFromUrl,
   S3_LOCK_CHANGED_EVENT,
@@ -14,26 +15,36 @@ import {
   hasPendingImportTokenInUrl,
   initializeMasterPassword,
   importFromUrlToken,
+  lockS3ConfigSession,
   migrateLegacyPlainConfig,
   touchS3ConfigActivity,
   unlockS3Config,
 } from "./storage-config"
 
-type RouteKey = "configs" | "records" | "new-record" | "settings"
+type RouteKey = "configs" | "records" | "security" | "storage" | "endpoint"
 type AuthMode = "none" | "import-unlock" | "unlock" | "setup"
 
 const routes: Array<{ key: RouteKey; label: string; hash: string }> = [
   { key: "configs", label: "Configs", hash: "#/configs" },
   { key: "records", label: "Records", hash: "#/records" },
-  { key: "settings", label: "Settings", hash: "#/settings" },
+  { key: "security", label: "Security", hash: "#/security" },
+  { key: "storage", label: "Storage", hash: "#/storage" },
+  { key: "endpoint", label: "Endpoint", hash: "#/endpoint" },
 ]
 
 function getRouteFromHash(): RouteKey {
-  const hash = window.location.hash
+  const hash = window.location.hash.trim()
   if (hash === "#/records") return "records"
-  if (hash === "#/records/new") return "new-record"
-  if (hash === "#/settings") return "settings"
+  if (hash === "#/records/") return "records"
+  if (hash === "#/records/new") return "records"
+  if (hash === "#/security") return "security"
+  if (hash === "#/security/") return "security"
+  if (hash === "#/storage") return "storage"
+  if (hash === "#/storage/") return "storage"
+  if (hash === "#/endpoint") return "endpoint"
+  if (hash === "#/endpoint/") return "endpoint"
   if (hash === "#/configs") return "configs"
+  if (hash === "#/configs/") return "configs"
   return "records"
 }
 
@@ -47,6 +58,10 @@ export function App() {
   const [importToken, setImportToken] = useState("")
 
   useEffect(() => {
+    if (!window.location.hash.trim()) {
+      window.location.hash = "#/records"
+    }
+
     function onHashChange() {
       setRoute(getRouteFromHash())
     }
@@ -54,6 +69,8 @@ export function App() {
     window.addEventListener("hashchange", onHashChange)
     return () => window.removeEventListener("hashchange", onHashChange)
   }, [])
+
+  const safeRoute: RouteKey = routes.some((item) => item.key === route) ? route : "records"
 
   useEffect(() => {
     function detectAuthMode(token: string): AuthMode {
@@ -130,28 +147,36 @@ export function App() {
 
   return (
     <div className="app dark">
-      <Tabs
-        aria-label="Navigation"
-        selectedKey={route}
-        onSelectionChange={(key) => {
-          const found = routes.find((item) => item.key === key)
-          if (found) {
-            window.location.hash = found.hash
-          }
-        }}
-        variant="underlined"
-        color="primary"
-        className="nav"
-      >
-        {routes.map((item) => (
-          <Tab key={item.key} title={item.label} />
-        ))}
-      </Tabs>
+      <div className="nav-wrap">
+        <Tabs
+          aria-label="Navigation"
+          selectedKey={safeRoute}
+          onSelectionChange={(key) => {
+            const found = routes.find((item) => item.key === key)
+            if (found) {
+              window.location.hash = found.hash
+            }
+          }}
+          variant="underlined"
+          color="primary"
+          className="nav"
+        >
+          {routes.map((item) => (
+            <Tab key={item.key} title={item.label} />
+          ))}
+        </Tabs>
+        <div className="nav-actions">
+          <Button className="app-btn app-btn-ghost" type="button" variant="flat" onPress={lockS3ConfigSession}>
+            锁定
+          </Button>
+        </div>
+      </div>
 
       {authMode === "none" && route === "configs" && <LinkConfigsPage />}
       {authMode === "none" && route === "records" && <LinkRecordsPage />}
-      {authMode === "none" && route === "new-record" && <NewLinkRecordPage />}
-      {authMode === "none" && route === "settings" && <SettingsPage />}
+      {authMode === "none" && route === "security" && <SecurityPage />}
+      {authMode === "none" && route === "storage" && <StoragePage />}
+      {authMode === "none" && route === "endpoint" && <EndpointPage />}
 
       <Modal
         isOpen={authMode !== "none"}

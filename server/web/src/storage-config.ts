@@ -402,6 +402,6 @@ export function assertS3ConfigReady(config: S3Config): void {
   if (!config.secretAccessKey.trim()) missing.push("secretAccessKey")
   if (!config.passphrase.trim()) missing.push("passphrase")
   if (missing.length > 0) {
-    throw new Error(`请先在 Settings 配置 S3: ${missing.join(", ")}`)
+    throw new Error(`请先在 Storage 配置 S3: ${missing.join(", ")}`)
   }
 }

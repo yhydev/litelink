@@ -107,7 +107,7 @@ function emptyDb(): LocalDb {
 function getPassphrase(): string {
   const passphrase = getUnlockedS3ConfigOrThrow().passphrase
   if (!passphrase.trim()) {
-    throw new Error("请先在 Settings 配置 Encryption Passphrase")
+    throw new Error("请先在 Storage 配置 Encryption Passphrase")
   }
   return passphrase
 }
