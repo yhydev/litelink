@@ -3,15 +3,13 @@ import { Button, Card, CardBody, Divider, Input } from "@heroui/react"
 import { DEFAULT_ENDPOINT, getLocalEndpoint, setLocalEndpoint } from "../../src/local-endpoint"
 import {
   EMPTY_S3_CONFIG,
+  changeMasterPassword,
   getS3Config,
-  hasEncryptedS3Config,
-  hasLegacyPlainS3Config,
+  getMasterPasswordErrorMessage,
   isS3ConfigUnlocked,
   lockS3ConfigSession,
-  migrateLegacyPlainConfig,
   setS3Config,
   touchS3ConfigActivity,
-  unlockS3Config,
   type S3Config,
 } from "../../src/storage-config"
 import { s3Store } from "../../src/s3-storage"
@@ -20,9 +18,11 @@ import { syncFromS3, syncToS3 } from "../../src/sync-service"
 export default function SettingsPage() {
   const [localEndpoint, setLocalEndpointState] = useState(() => getLocalEndpoint())
   const [s3Config, setS3ConfigState] = useState<S3Config>(() => (isS3ConfigUnlocked() ? getS3Config() : { ...EMPTY_S3_CONFIG }))
-  const [masterPassword, setMasterPassword] = useState("")
   const [unlocked, setUnlocked] = useState(() => isS3ConfigUnlocked())
-  const [unlockResult, setUnlockResult] = useState("")
+  const [currentMasterPassword, setCurrentMasterPassword] = useState("")
+  const [nextMasterPassword, setNextMasterPassword] = useState("")
+  const [confirmNextMasterPassword, setConfirmNextMasterPassword] = useState("")
+  const [passwordResult, setPasswordResult] = useState("")
   const [saved, setSaved] = useState("")
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState("")
@@ -51,23 +51,6 @@ export default function SettingsPage() {
     touchS3ConfigActivity()
   }
 
-  async function handleUnlock() {
-    setUnlockResult("")
-    try {
-      if (hasLegacyPlainS3Config() && !hasEncryptedS3Config()) {
-        await migrateLegacyPlainConfig(masterPassword)
-      }
-      const cfg = await unlockS3Config(masterPassword)
-      setS3ConfigState(cfg)
-      setUnlocked(true)
-      setUnlockResult("解锁成功")
-    } catch (error) {
-      setUnlocked(false)
-      setS3ConfigState({ ...EMPTY_S3_CONFIG })
-      setUnlockResult(error instanceof Error ? `解锁失败: ${error.message}` : "解锁失败")
-    }
-  }
-
   function handleLock() {
     lockS3ConfigSession()
     setUnlocked(false)
@@ -75,7 +58,28 @@ export default function SettingsPage() {
     setSaved("")
     setTestResult("")
     setSyncResult("")
-    setUnlockResult("已锁定")
+    setPasswordResult("已锁定")
+  }
+
+  async function handleChangeMasterPassword() {
+    setPasswordResult("")
+    if (!unlocked) {
+      setPasswordResult("修改失败: 请先完成全局解锁")
+      return
+    }
+    if (nextMasterPassword !== confirmNextMasterPassword) {
+      setPasswordResult("修改失败: 两次输入的新密码不一致")
+      return
+    }
+    try {
+      await changeMasterPassword(currentMasterPassword, nextMasterPassword)
+      setCurrentMasterPassword("")
+      setNextMasterPassword("")
+      setConfirmNextMasterPassword("")
+      setPasswordResult("Master Password 修改成功")
+    } catch (error) {
+      setPasswordResult(`修改失败: ${getMasterPasswordErrorMessage(error, "请重试")}`)
+    }
   }
 
   async function testConnection() {
@@ -135,23 +139,34 @@ export default function SettingsPage() {
   return (
     <main>
       <h1>Settings</h1>
-      <p className="section-lead">进入页面请先输入 Master Password 解锁（仅保存在内存会话）。后续读取与保存都会使用该口令进行加解密。</p>
+      <p className="section-lead">Master Password 由全局弹框解锁。你可以在这里锁定当前会话，或修改 Master Password。</p>
       <Card className="card">
         <CardBody className="list-grid">
-        <label className="field">
-          <span>Master Password</span>
-          <Input type="password" value={masterPassword} onValueChange={setMasterPassword} placeholder="用于解锁 S3 配置密文" />
-        </label>
         <div className="actions-row">
-          <Button type="button" color="primary" onPress={() => void handleUnlock()}>
-            解锁
-          </Button>
           <Button className="app-btn app-btn-ghost" type="button" variant="flat" onPress={handleLock}>
             锁定
           </Button>
         </div>
-        {unlockResult && <p className={unlockResult.includes("成功") || unlockResult.includes("已锁定") ? "success-note" : "error-note"}>{unlockResult}</p>}
+        {passwordResult && <p className={passwordResult.includes("成功") || passwordResult.includes("已锁定") ? "success-note" : "error-note"}>{passwordResult}</p>}
         {!unlocked && <p className="info-note">未解锁状态下，S3 配置与同步操作不可用。</p>}
+        <Divider />
+        <label className="field">
+          <span>Current Master Password</span>
+          <Input type="password" value={currentMasterPassword} onValueChange={setCurrentMasterPassword} placeholder="输入当前 Master Password" isDisabled={!unlocked} />
+        </label>
+        <label className="field">
+          <span>New Master Password</span>
+          <Input type="password" value={nextMasterPassword} onValueChange={setNextMasterPassword} placeholder="输入新的 Master Password" isDisabled={!unlocked} />
+        </label>
+        <label className="field">
+          <span>Confirm New Master Password</span>
+          <Input type="password" value={confirmNextMasterPassword} onValueChange={setConfirmNextMasterPassword} placeholder="再次输入新的 Master Password" isDisabled={!unlocked} />
+        </label>
+        <div className="actions-row">
+          <Button type="button" color="primary" onPress={() => void handleChangeMasterPassword()} isDisabled={!unlocked}>
+            修改 Master Password
+          </Button>
+        </div>
         <Divider />
         <label className="field">
           <span>Local Endpoint</span>

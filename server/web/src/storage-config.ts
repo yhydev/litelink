@@ -20,11 +20,18 @@ const STORAGE_KEY = "litelink.s3.config.enc.v1"
 const AUTO_LOCK_MINUTES_KEY = "litelink.security.autolock.minutes"
 const DEFAULT_AUTO_LOCK_MINUTES = 15
 const ENC_V1 = "enc_v1"
+export const S3_LOCK_CHANGED_EVENT = "litelink:s3-lock-changed"
+
+type S3LockState = "locked" | "unlocked"
 
 let unlockedConfig: S3Config | null = null
 let masterPasswordInMemory = ""
 let unlockTimer: number | null = null
 let lastActivityAt = 0
+
+function emitLockState(state: S3LockState): void {
+  window.dispatchEvent(new CustomEvent(S3_LOCK_CHANGED_EVENT, { detail: { state } }))
+}
 
 export const EMPTY_S3_CONFIG: S3Config = {
   endpoint: "",
@@ -128,6 +135,7 @@ export function lockS3ConfigSession(): void {
     window.clearTimeout(unlockTimer)
     unlockTimer = null
   }
+  emitLockState("locked")
 }
 
 export function getAutoLockMinutes(): number {
@@ -170,6 +178,7 @@ export async function unlockS3Config(masterPassword: string): Promise<S3Config> 
     unlockedConfig = { ...EMPTY_S3_CONFIG }
     lastActivityAt = Date.now()
     scheduleAutoLock()
+    emitLockState("unlocked")
     return { ...EMPTY_S3_CONFIG }
   }
   const plain = await decryptText(encrypted, masterPassword)
@@ -178,6 +187,7 @@ export async function unlockS3Config(masterPassword: string): Promise<S3Config> 
   masterPasswordInMemory = masterPassword
   lastActivityAt = Date.now()
   scheduleAutoLock()
+  emitLockState("unlocked")
   return { ...parsed }
 }
 
@@ -189,6 +199,24 @@ export async function setS3Config(config: S3Config): Promise<void> {
   const encrypted = await encryptText(JSON.stringify(normalized), masterPasswordInMemory)
   localStorage.setItem(STORAGE_KEY, encrypted)
   unlockedConfig = normalized
+  touchS3ConfigActivity()
+}
+
+export async function changeMasterPassword(currentPassword: string, nextPassword: string): Promise<void> {
+  if (!currentPassword.trim()) {
+    throw new Error("master_password_required")
+  }
+  if (!nextPassword.trim()) {
+    throw new Error("new_master_password_required")
+  }
+  const encrypted = localStorage.getItem(STORAGE_KEY)
+  if (!encrypted) {
+    throw new Error("encrypted_config_not_found")
+  }
+  const plain = await decryptText(encrypted, currentPassword)
+  const reEncrypted = await encryptText(plain, nextPassword)
+  localStorage.setItem(STORAGE_KEY, reEncrypted)
+  masterPasswordInMemory = nextPassword
   touchS3ConfigActivity()
 }
 
@@ -211,7 +239,30 @@ export async function migrateLegacyPlainConfig(masterPassword: string): Promise<
   masterPasswordInMemory = masterPassword
   lastActivityAt = Date.now()
   scheduleAutoLock()
+  emitLockState("unlocked")
   return true
+}
+
+export function shouldRequireMasterPassword(): boolean {
+  return (hasEncryptedS3Config() || hasLegacyPlainS3Config()) && !isS3ConfigUnlocked()
+}
+
+export function getMasterPasswordErrorMessage(error: unknown, fallback = "操作失败"): string {
+  if (!(error instanceof Error)) return fallback
+  switch (error.message) {
+    case "master_password_required":
+      return "请输入 Master Password"
+    case "new_master_password_required":
+      return "请输入新的 Master Password"
+    case "unlock_failed":
+      return "Master Password 不正确"
+    case "encrypted_config_not_found":
+      return "未找到可修改的加密配置"
+    case "config_locked":
+      return "当前会话已锁定，请先解锁"
+    default:
+      return error.message || fallback
+  }
 }
 
 export function assertS3ConfigReady(config: S3Config): void {
