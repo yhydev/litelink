@@ -47,10 +47,11 @@ export default function LinkConfigsPage() {
       </div>
 
       <section className="card table-card">
+        {error && <p className="error-note">{error}</p>}
         {loading ? (
-          <Spinner label="Loading..." color="primary" />
-        ) : error ? (
-          <p className="error-note">{error}</p>
+          <div className="table-loading-wrap">
+            <Spinner label="Loading..." color="primary" />
+          </div>
         ) : (
           <Table aria-label="link config list" removeWrapper classNames={{ table: "app-table" }}>
             <TableHeader>

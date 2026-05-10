@@ -1,5 +1,5 @@
 import type { LinkConfigRow, LinkRecordRow } from "./s3-storage"
-import { getS3Config } from "./storage-config"
+import { getUnlockedS3ConfigOrThrow } from "./storage-config"
 
 const ENC_V1 = "enc_v1"
 const DB_STORAGE_KEY = "litelink.db.enc.v1"
@@ -105,7 +105,7 @@ function emptyDb(): LocalDb {
 }
 
 function getPassphrase(): string {
-  const passphrase = getS3Config().passphrase
+  const passphrase = getUnlockedS3ConfigOrThrow().passphrase
   if (!passphrase.trim()) {
     throw new Error("请先在 Settings 配置 Encryption Passphrase")
   }

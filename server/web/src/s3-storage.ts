@@ -1,5 +1,5 @@
 import { S3Client, GetObjectCommand, ListObjectsV2Command, PutObjectCommand } from "@aws-sdk/client-s3"
-import { assertS3ConfigReady, getS3Config, type S3Config } from "./storage-config"
+import { assertS3ConfigReady, getUnlockedS3ConfigOrThrow, type S3Config } from "./storage-config"
 
 const ENC_V1 = "enc_v1"
 
@@ -130,7 +130,7 @@ async function objectToText(body: unknown): Promise<string> {
 }
 
 async function readTable<T extends keyof TableData>(table: T): Promise<TableData[T]> {
-  const cfg = getS3Config()
+  const cfg = getUnlockedS3ConfigOrThrow()
   assertS3ConfigReady(cfg)
   const client = makeClient(cfg)
   const key = `${normalizePrefix(cfg.prefix)}${TABLE_FILES[table]}`
@@ -150,7 +150,7 @@ async function readTable<T extends keyof TableData>(table: T): Promise<TableData
 }
 
 async function writeTable<T extends keyof TableData>(table: T, rows: TableData[T]): Promise<void> {
-  const cfg = getS3Config()
+  const cfg = getUnlockedS3ConfigOrThrow()
   assertS3ConfigReady(cfg)
   const client = makeClient(cfg)
   const key = `${normalizePrefix(cfg.prefix)}${TABLE_FILES[table]}`
@@ -167,7 +167,7 @@ async function writeTable<T extends keyof TableData>(table: T, rows: TableData[T
 
 export const s3Store = {
   async testConnection(): Promise<{ ok: true; message: string }> {
-    const cfg = getS3Config()
+    const cfg = getUnlockedS3ConfigOrThrow()
     assertS3ConfigReady(cfg)
     const client = makeClient(cfg)
     await client.send(

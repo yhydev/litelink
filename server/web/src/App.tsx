@@ -4,6 +4,7 @@ import LinkConfigsPage from "../pages/link-configs/index"
 import LinkRecordsPage from "../pages/link-records/index"
 import NewLinkRecordPage from "../pages/link-records/new"
 import SettingsPage from "../pages/settings/index"
+import { touchS3ConfigActivity } from "./storage-config"
 
 type RouteKey = "configs" | "records" | "new-record" | "settings"
 
@@ -32,6 +33,19 @@ export function App() {
 
     window.addEventListener("hashchange", onHashChange)
     return () => window.removeEventListener("hashchange", onHashChange)
+  }, [])
+
+  useEffect(() => {
+    function onActivity() {
+      touchS3ConfigActivity()
+    }
+
+    window.addEventListener("pointerdown", onActivity)
+    window.addEventListener("keydown", onActivity)
+    return () => {
+      window.removeEventListener("pointerdown", onActivity)
+      window.removeEventListener("keydown", onActivity)
+    }
   }, [])
 
   return (

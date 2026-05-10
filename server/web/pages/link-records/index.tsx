@@ -40,8 +40,10 @@ interface RowFeedback {
 
 export default function LinkRecordsPage() {
   const [configs, setConfigs] = useState<ConfigItem[]>([])
+  const [configsLoading, setConfigsLoading] = useState(true)
   const [selectedId, setSelectedId] = useState("")
   const [records, setRecords] = useState<RecordItem[]>([])
+  const [recordsLoading, setRecordsLoading] = useState(true)
   const [createOpen, setCreateOpen] = useState(false)
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null)
   const [feedbackById, setFeedbackById] = useState<Record<string, RowFeedback>>({})
@@ -50,22 +52,28 @@ export default function LinkRecordsPage() {
 
   useEffect(() => {
     void (async () => {
+      setConfigsLoading(true)
       try {
         setConfigs((await fetchLinkConfigs()) as ConfigItem[])
       } catch (err) {
         setListError(err instanceof Error ? err.message : "加载配置失败")
+      } finally {
+        setConfigsLoading(false)
       }
     })()
   }, [])
 
   useEffect(() => {
     void (async () => {
+      setRecordsLoading(true)
       try {
         setListError("")
         const items = (await fetchLinkRecords(selectedId || undefined)) as RecordItem[]
         setRecords(items)
       } catch (err) {
         setListError(err instanceof Error ? err.message : "加载记录失败")
+      } finally {
+        setRecordsLoading(false)
       }
     })()
   }, [selectedId])
@@ -80,12 +88,15 @@ export default function LinkRecordsPage() {
   }, [configs])
 
   async function refreshRecords() {
+    setRecordsLoading(true)
     try {
       setListError("")
       const items = (await fetchLinkRecords(selectedId || undefined)) as RecordItem[]
       setRecords(items)
     } catch (err) {
       setListError(err instanceof Error ? err.message : "加载记录失败")
+    } finally {
+      setRecordsLoading(false)
     }
   }
 
@@ -184,8 +195,10 @@ export default function LinkRecordsPage() {
 
       <section className="card table-card">
         {listError && <p className="error-note">{listError}</p>}
-        {configs.length === 0 && records.length === 0 ? (
-          <Spinner label="Loading..." color="primary" />
+        {configsLoading || recordsLoading ? (
+          <div className="table-loading-wrap">
+            <Spinner label="Loading..." color="primary" />
+          </div>
         ) : (
           <Table aria-label="link records" removeWrapper classNames={{ table: "app-table" }}>
             <TableHeader>
@@ -200,7 +213,9 @@ export default function LinkRecordsPage() {
                 return (
                   <TableRow key={record.id}>
                     <TableCell><div className="record-name">{record.name || "—"}</div></TableCell>
-                    <TableCell className="record-note">{record.note || "—"}</TableCell>
+                    <TableCell className="record-note">
+                      <span className="record-note-ellipsis" title={record.note || ""}>{record.note || "—"}</span>
+                    </TableCell>
                     <TableCell><span className="type-pill">{configNameById[record.linkConfigId] || "—"}</span></TableCell>
                     <TableCell>
                       <div className="row-actions">
