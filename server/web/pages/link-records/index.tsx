@@ -2,9 +2,8 @@ import { useEffect, useMemo, useState } from "react"
 import { Button, Select, SelectItem, Spinner, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow } from "@heroui/react"
 import { fetchLinkConfigs } from "../../services/link-config-api"
 import { fetchLinkRecords } from "../../services/link-record-api"
-import { renderCommand } from "../../services/command-run-api"
+import { renderConnectionAddress } from "../../services/command-run-api"
 import { LinkRecordDialog } from "../../components/link-record/LinkRecordDialog"
-import { getLocalEndpoint } from "../../src/local-endpoint"
 
 function getSelectionValue(keys: unknown): string {
   if (keys === "all") {
@@ -21,6 +20,7 @@ interface ConfigItem {
   id: string
   name: string
   schema: Record<string, unknown>
+  connectionTemplates?: Array<{ name: string; template: string }>
 }
 
 interface RecordItem {
@@ -33,11 +33,6 @@ interface RecordItem {
   status: "active" | "archived"
 }
 
-interface RowFeedback {
-  kind: "success" | "error" | "info"
-  text: string
-}
-
 export default function LinkRecordsPage() {
   const [configs, setConfigs] = useState<ConfigItem[]>([])
   const [configsLoading, setConfigsLoading] = useState(true)
@@ -46,9 +41,8 @@ export default function LinkRecordsPage() {
   const [recordsLoading, setRecordsLoading] = useState(true)
   const [createOpen, setCreateOpen] = useState(false)
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null)
-  const [feedbackById, setFeedbackById] = useState<Record<string, RowFeedback>>({})
-  const [connectingById, setConnectingById] = useState<Record<string, boolean>>({})
   const [listError, setListError] = useState("")
+  const [feedbackById, setFeedbackById] = useState<Record<string, string>>({})
 
   useEffect(() => {
     void (async () => {
@@ -113,49 +107,31 @@ export default function LinkRecordsPage() {
     setEditingRecordId(null)
   }
 
-  async function connectRow(record: RecordItem) {
-    setConnectingById((prev) => ({ ...prev, [record.id]: true }))
-    setFeedbackById((prev) => ({ ...prev, [record.id]: { kind: "info", text: "正在打开..." } }))
+  async function openRenderedAddressInNewTab(event: React.MouseEvent<HTMLAnchorElement>, recordId: string, templateName: string) {
+    event.preventDefault()
+    setFeedbackById((prev) => ({ ...prev, [recordId]: `正在渲染模板 ${templateName}...` }))
     try {
-      const rendered = await renderCommand(record.id)
+      const rendered = await renderConnectionAddress(recordId, templateName)
       if (rendered.unresolvedVariables.length > 0) {
         setFeedbackById((prev) => ({
           ...prev,
-          [record.id]: {
-            kind: "error",
-            text: `缺少变量: ${rendered.unresolvedVariables.join(", ")}`,
-          },
+          [recordId]: `缺少变量: ${rendered.unresolvedVariables.join(", ")}`,
         }))
         return
       }
-
-      const endpoint = getLocalEndpoint().trim()
-      const endpointUrl = new URL(endpoint)
-      endpointUrl.searchParams.set("command", rendered.renderedCommand)
-      endpointUrl.searchParams.set("runId", `web_${record.id}_${Date.now()}`)
-
-      const opened = window.open(endpointUrl.toString(), "_blank", "noopener,noreferrer")
-      if (!opened) {
-        throw new Error("浏览器阻止了新窗口，请允许弹窗后重试")
+      const url = rendered.renderedAddress.trim()
+      if (!url) {
+        setFeedbackById((prev) => ({ ...prev, [recordId]: "渲染结果为空" }))
+        return
       }
-
-      setFeedbackById((prev) => ({
-        ...prev,
-        [record.id]: {
-          kind: "success",
-          text: `已打开本地执行页 · ${endpointUrl.toString()}`,
-        },
-      }))
+      const opened = window.open(url, "_blank", "noopener,noreferrer")
+      if (!opened) {
+        setFeedbackById((prev) => ({ ...prev, [recordId]: "浏览器阻止了新窗口，请允许弹窗后重试" }))
+        return
+      }
+      setFeedbackById((prev) => ({ ...prev, [recordId]: `已打开: ${url}` }))
     } catch (error) {
-      setFeedbackById((prev) => ({
-        ...prev,
-        [record.id]: {
-          kind: "error",
-          text: error instanceof Error ? error.message : "连接失败",
-        },
-      }))
-    } finally {
-      setConnectingById((prev) => ({ ...prev, [record.id]: false }))
+      setFeedbackById((prev) => ({ ...prev, [recordId]: error instanceof Error ? error.message : "连接失败" }))
     }
   }
 
@@ -209,7 +185,6 @@ export default function LinkRecordsPage() {
             </TableHeader>
             <TableBody items={records} emptyContent="暂无记录">
               {(record) => {
-                const feedback = feedbackById[record.id]
                 return (
                   <TableRow key={record.id}>
                     <TableCell><div className="record-name">{record.name || "—"}</div></TableCell>
@@ -220,11 +195,22 @@ export default function LinkRecordsPage() {
                     <TableCell>
                       <div className="row-actions">
                         <Button className="app-btn app-btn-ghost" size="sm" variant="flat" onPress={() => openEdit(record.id)} type="button">编辑</Button>
-                        <Button className="app-btn app-btn-primary" size="sm" color="primary" onPress={() => void connectRow(record)} isDisabled={connectingById[record.id]} type="button">
-                          {connectingById[record.id] ? "连接中" : "连接"}
-                        </Button>
+                        {(configs.find((item) => item.id === record.linkConfigId)?.connectionTemplates ?? []).map((tpl) => (
+                          <a
+                            key={`${record.id}-${tpl.name}`}
+                            className="app-btn app-btn-primary"
+                            href="#"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(event) => {
+                              void openRenderedAddressInNewTab(event, record.id, tpl.name)
+                            }}
+                          >
+                            {tpl.name}
+                          </a>
+                        ))}
                       </div>
-                      {feedback && <div className={`row-note ${feedback.kind === "error" ? "error-note" : feedback.kind === "success" ? "success-note" : "info-note"}`}>{feedback.text}</div>}
+                      {feedbackById[record.id] && <div className="row-note">{feedbackById[record.id]}</div>}
                     </TableCell>
                   </TableRow>
                 )

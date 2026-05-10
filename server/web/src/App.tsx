@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react"
 import { Button, Input, Modal, ModalBody, ModalContent, ModalHeader, Tab, Tabs } from "@heroui/react"
 import LinkConfigsPage from "../pages/link-configs/index"
-import EndpointPage from "../pages/endpoint/index"
 import LinkRecordsPage from "../pages/link-records/index"
 import SecurityPage from "../pages/security/index"
 import StoragePage from "../pages/storage/index"
@@ -21,7 +20,7 @@ import {
   unlockS3Config,
 } from "./storage-config"
 
-type RouteKey = "configs" | "records" | "security" | "storage" | "endpoint"
+type RouteKey = "configs" | "records" | "security" | "storage"
 type AuthMode = "none" | "import-unlock" | "unlock" | "setup"
 
 const routes: Array<{ key: RouteKey; label: string; hash: string }> = [
@@ -29,7 +28,6 @@ const routes: Array<{ key: RouteKey; label: string; hash: string }> = [
   { key: "records", label: "Records", hash: "#/records" },
   { key: "security", label: "Security", hash: "#/security" },
   { key: "storage", label: "Storage", hash: "#/storage" },
-  { key: "endpoint", label: "Endpoint", hash: "#/endpoint" },
 ]
 
 function getRouteFromHash(): RouteKey {
@@ -41,8 +39,6 @@ function getRouteFromHash(): RouteKey {
   if (hash === "#/security/") return "security"
   if (hash === "#/storage") return "storage"
   if (hash === "#/storage/") return "storage"
-  if (hash === "#/endpoint") return "endpoint"
-  if (hash === "#/endpoint/") return "endpoint"
   if (hash === "#/configs") return "configs"
   if (hash === "#/configs/") return "configs"
   return "records"
@@ -176,7 +172,6 @@ export function App() {
       {authMode === "none" && route === "records" && <LinkRecordsPage />}
       {authMode === "none" && route === "security" && <SecurityPage />}
       {authMode === "none" && route === "storage" && <StoragePage />}
-      {authMode === "none" && route === "endpoint" && <EndpointPage />}
 
       <Modal
         isOpen={authMode !== "none"}

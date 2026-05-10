@@ -131,7 +131,7 @@ export default function LinkConfigsPage() {
                 name: editing?.name ?? "",
                 description: editing?.description ?? "",
                 schema: editing?.schema ?? {},
-                commandTemplate: editing?.commandTemplate ?? "",
+                connectionTemplates: (editing as ConfigItem & { connectionTemplates?: Array<{ name: string; template: string }> })?.connectionTemplates ?? [],
               }}
               submitLabel="Save Changes"
               onSubmit={async (payload) => {

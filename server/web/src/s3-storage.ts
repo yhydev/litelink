@@ -16,6 +16,7 @@ export interface LinkConfigRow {
   description: string | null
   schema_json: string
   command_template: string
+  connection_templates_json?: string
   status: "active" | "inactive"
   created_by: string
   created_at: string
